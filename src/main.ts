@@ -34,7 +34,7 @@ app.innerHTML = `
     <section class="sim-warning" role="alert">
       ⚠ SIMULATED — every exhibit demonstrates the principle only. Real attacks require
       physical access, specialized probes or glitchers, and significant expertise. ML-KEM
-      and ML-DSA are not mathematically broken.
+      and ML-DSA are not mathematically broken; these are implementation attacks.
     </section>
 
     <section class="exhibit panel" id="attack-1">

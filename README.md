@@ -50,7 +50,7 @@ https://systemslibrarian.github.io/crypto-lab-lattice-fault/
 ## Real-World Usage
 
 These attacks are implementation attacks, not mathematical breaks.
-ML-KEM and ML-DSA remain sound cryptographic constructions.
+ML-KEM and ML-DSA are not mathematically broken and remain sound cryptographic constructions.
 
 Relevant lessons from public research:
 
