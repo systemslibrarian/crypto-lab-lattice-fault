@@ -61,6 +61,12 @@ button:hover {
   border-color: rgba(0, 212, 255, 0.5);
 }
 
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
 label {
   display: grid;
   gap: 0.35rem;
@@ -73,6 +79,7 @@ input[type='range'] {
 }
 
 canvas {
+  display: block;
   width: 100%;
   max-width: 100%;
   height: auto;
@@ -114,6 +121,7 @@ ul {
 .theme-toggle {
   align-self: flex-start;
   min-width: 3rem;
+  margin-left: auto;
 }
 
 .eyebrow,

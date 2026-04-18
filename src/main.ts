@@ -69,7 +69,7 @@ app.innerHTML = `
 
         <div class="panel inset-panel">
           <h3>CPA Result</h3>
-          <div id="cpa-results" class="result-box">Awaiting traces.</div>
+          <div id="cpa-results" class="result-box" aria-live="polite">Awaiting traces.</div>
         </div>
       </div>
 
@@ -101,14 +101,14 @@ app.innerHTML = `
           <h3>Normal signing</h3>
           <p class="small-text">All accepted outputs remain below the bound γ₁ − β.</p>
           <button id="normal-sign-btn">Sign 20 messages normally</button>
-          <div id="normal-log" class="log-panel"></div>
+          <div id="normal-log" class="log-panel" aria-live="polite"></div>
         </div>
 
         <div class="panel inset-panel">
           <h3>Faulted signing</h3>
           <p class="small-text">Bypassing the rejection check releases signatures that should have been discarded.</p>
           <button id="faulted-sign-btn">Simulate 20 Faulted Signatures</button>
-          <div id="faulted-log" class="log-panel"></div>
+          <div id="faulted-log" class="log-panel" aria-live="polite"></div>
         </div>
       </div>
 
@@ -116,7 +116,7 @@ app.innerHTML = `
       <div class="button-row">
         <button id="recover-btn">Run Key Recovery from 1000 Faulty Signatures</button>
       </div>
-      <div id="recovery-panel" class="result-box">Recovery panel idle.</div>
+      <div id="recovery-panel" class="result-box" aria-live="polite">Recovery panel idle.</div>
     </section>
 
     <section class="exhibit panel" id="attack-3">
@@ -137,7 +137,7 @@ app.innerHTML = `
         <button id="run-constant-btn">Run Timing Experiment — Constant Time</button>
       </div>
       <canvas id="timing-canvas" width="600" height="220" role="img" aria-label="Timing profile for vulnerable and constant-time ML-KEM decoding"></canvas>
-      <div id="timing-results" class="result-box">No timing measurements collected yet.</div>
+      <div id="timing-results" class="result-box" aria-live="polite">No timing measurements collected yet.</div>
       <div class="context-bar">
         <strong>Browser note:</strong> Spectre mitigations reduce timer precision. This exhibit shows the principle, not nanosecond-fidelity lab measurements.
       </div>
@@ -160,7 +160,7 @@ app.innerHTML = `
         <button id="run-keccak-btn">Run Attack Simulation</button>
       </div>
       <canvas id="keccak-canvas" width="600" height="260" role="img" aria-label="KECCAK sponge-state comparison between normal and faulted absorption"></canvas>
-      <div id="keccak-results" class="result-box">Awaiting KECCAK simulation.</div>
+      <div id="keccak-results" class="result-box" aria-live="polite">Awaiting KECCAK simulation.</div>
     </section>
 
     <section class="exhibit panel" id="attack-5">
