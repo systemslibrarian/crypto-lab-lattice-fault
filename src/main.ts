@@ -214,9 +214,6 @@ app.innerHTML = `
       </div>
     </section>
 
-    <footer>
-      <p>"Whether therefore ye eat, or drink, or whatsoever ye do, do all to the glory of God." — 1 Corinthians 10:31</p>
-    </footer>
   </main>
 `;
 
