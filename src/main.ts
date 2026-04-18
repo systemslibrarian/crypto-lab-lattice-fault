@@ -28,7 +28,7 @@ app.innerHTML = `
           from real devices unless countermeasures migrate too.
         </p>
       </div>
-      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark or light theme">☀️</button>
+      <button id="theme-toggle" class="theme-toggle" style="position: absolute; top: 0; right: 0" aria-label="Switch to light mode">🌙</button>
     </header>
 
     <section class="sim-warning" role="alert">
@@ -406,18 +406,25 @@ function drawCorrelationPlot(canvas: HTMLCanvasElement, scores: Float64Array, se
   ctx.stroke();
 }
 
-function setTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('cv-theme', theme);
-  themeButton.textContent = theme === 'dark' ? '☀️' : '🌙';
+function updateThemeToggle(theme: Theme): void {
+  themeButton.textContent = theme === 'dark' ? '🌙' : '☀️';
+  themeButton.setAttribute(
+    'aria-label',
+    theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode',
+  );
+}
+
+function toggleTheme(): void {
+  const current = (document.documentElement.getAttribute('data-theme') ?? 'dark') as Theme;
+  const next: Theme = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeToggle(next);
 }
 
 const themeButton = must<HTMLButtonElement>('#theme-toggle');
-themeButton.addEventListener('click', () => {
-  const current = (document.documentElement.getAttribute('data-theme') ?? 'dark') as Theme;
-  setTheme(current === 'dark' ? 'light' : 'dark');
-});
-setTheme((document.documentElement.getAttribute('data-theme') ?? 'dark') as Theme);
+updateThemeToggle((document.documentElement.getAttribute('data-theme') ?? 'dark') as Theme);
+themeButton.addEventListener('click', toggleTheme);
 
 const traceCanvas = must<HTMLCanvasElement>('#trace-canvas');
 const cpaCanvas = must<HTMLCanvasElement>('#cpa-canvas');
