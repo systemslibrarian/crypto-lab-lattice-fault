@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", sans-serif;
+  background: #07110b;
+  color: #e8fff0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(0, 255, 102, 0.12), transparent 35%),
+    #050b07;
+}
+
+.shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.hero {
+  border: 1px solid rgba(0, 255, 102, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  background: rgba(10, 26, 14, 0.86);
+  box-shadow: 0 0 24px rgba(0, 255, 102, 0.1);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: #12351d;
+  color: #00ff88;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
