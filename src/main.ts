@@ -31,7 +31,7 @@ app.innerHTML = `
       <button id="theme-toggle" class="theme-toggle" style="position: absolute; top: 0; right: 0" aria-label="Switch to light mode">🌙</button>
     </header>
 
-    <section class="sim-warning" role="alert">
+    <section class="sim-warning" role="note">
       ⚠ SIMULATED — every exhibit demonstrates the principle only. Real attacks require
       physical access, specialized probes or glitchers, and significant expertise. ML-KEM
       and ML-DSA are not mathematically broken; these are implementation attacks.
@@ -73,10 +73,19 @@ app.innerHTML = `
         </div>
       </div>
 
-      <canvas id="trace-canvas" width="600" height="220" role="img" aria-label="Simulated power traces for ML-KEM NTT leakage"></canvas>
-      <div id="trace-hover" class="hint-line">Hover the power trace for the current sample index.</div>
+      <canvas id="trace-canvas" width="600" height="220" tabindex="0" role="img" aria-label="Simulated power traces for ML-KEM NTT leakage. Focus and use the arrow keys to read each sample."></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">X: NTT sample index &nbsp;·&nbsp; Y: simulated power (Hamming weight + noise)</span>
+        <span class="swatch" style="--c:#00ff66">first 5 power traces — one per ciphertext</span>
+      </figcaption>
+      <div id="trace-hover" class="hint-line">Hover, tap, or focus the trace and use ← → keys to read each sample.</div>
       <div id="butterfly-grid" class="butterfly-grid"></div>
       <canvas id="cpa-canvas" width="600" height="220" role="img" aria-label="CPA histogram for all ML-KEM key hypotheses"></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">X: key hypothesis 0–3328 &nbsp;·&nbsp; Y: |correlation|</span>
+        <span class="swatch" style="--c:#ffaa00">correlation per key guess</span>
+        <span class="swatch" style="--c:#ff3366">true secret key</span>
+      </figcaption>
 
       <div class="context-bar">
         <strong>Countermeasure:</strong> first-order masking and shuffling reduce leakage at a cost of roughly 2–4× runtime.
@@ -92,7 +101,7 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="sim-warning" role="alert">
+      <div class="sim-warning" role="note">
         ⚠ SIMULATED — this requires invasive fault injection against a signing device. The math is not broken.
       </div>
 
@@ -100,21 +109,27 @@ app.innerHTML = `
         <div class="panel inset-panel">
           <h3>Normal signing</h3>
           <p class="small-text">All accepted outputs remain below the bound γ₁ − β.</p>
-          <button id="normal-sign-btn">Sign 20 messages normally</button>
+          <button id="normal-sign-btn">Sign 300 messages (rejection sampling)</button>
           <div id="normal-log" class="log-panel" aria-live="polite"></div>
         </div>
 
         <div class="panel inset-panel">
           <h3>Faulted signing</h3>
           <p class="small-text">Bypassing the rejection check releases signatures that should have been discarded.</p>
-          <button id="faulted-sign-btn">Simulate 20 Faulted Signatures</button>
+          <button id="faulted-sign-btn">Simulate 300 Faulted Signatures</button>
           <div id="faulted-log" class="log-panel" aria-live="polite"></div>
         </div>
       </div>
 
       <canvas id="rejection-canvas" width="600" height="220" role="img" aria-label="Distribution comparison of normal and faulted ML-DSA signature coefficients"></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">X: signature coefficient value &nbsp;·&nbsp; Y: count</span>
+        <span class="swatch" style="--c:#00d4ff">accepted (normal signing)</span>
+        <span class="swatch" style="--c:#ff3366">faulted (rejection skipped)</span>
+        <span class="swatch swatch-dash" style="--c:#ffd166">±(γ₁−β) bound</span>
+      </figcaption>
       <div class="button-row">
-        <button id="recover-btn">Run Key Recovery from 1000 Faulty Signatures</button>
+        <button id="recover-btn">Run Key Recovery from 8,000 Faulty Signatures</button>
       </div>
       <div id="recovery-panel" class="result-box" aria-live="polite">Recovery panel idle.</div>
     </section>
@@ -128,7 +143,7 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="sim-warning" role="alert">
+      <div class="sim-warning" role="note">
         ⚠ SIMULATED — real exploitation needs repeated timing capture from the target hardware. Browser timers are much noisier.
       </div>
 
@@ -137,6 +152,11 @@ app.innerHTML = `
         <button id="run-constant-btn">Run Timing Experiment — Constant Time</button>
       </div>
       <canvas id="timing-canvas" width="600" height="220" role="img" aria-label="Timing profile for vulnerable and constant-time ML-KEM decoding"></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">X: sampled coefficient &nbsp;·&nbsp; Y: decode time (µs)</span>
+        <span class="swatch" style="--c:#ff3366">vulnerable (data-dependent, solid)</span>
+        <span class="swatch swatch-dash" style="--c:#00d4ff">constant-time (dashed)</span>
+      </figcaption>
       <div id="timing-results" class="result-box" aria-live="polite">No timing measurements collected yet.</div>
       <div class="context-bar">
         <strong>Browser note:</strong> Spectre mitigations reduce timer precision. This exhibit shows the principle, not nanosecond-fidelity lab measurements.
@@ -152,7 +172,7 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="sim-warning" role="alert">
+      <div class="sim-warning" role="note">
         ⚠ SIMULATED — this is a physical-fault demo, not a practical browser attack tool.
       </div>
 
@@ -160,6 +180,11 @@ app.innerHTML = `
         <button id="run-keccak-btn">Run Attack Simulation</button>
       </div>
       <canvas id="keccak-canvas" width="600" height="260" role="img" aria-label="KECCAK sponge-state comparison between normal and faulted absorption"></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">5×5 sponge state — left: normal absorb &nbsp;·&nbsp; right: faulted absorb</span>
+        <span class="swatch" style="--c:#00d4ff">lane byte intensity</span>
+        <span class="swatch" style="--c:#ff3366">faulted (zeroed nonce) region</span>
+      </figcaption>
       <div id="keccak-results" class="result-box" aria-live="polite">Awaiting KECCAK simulation.</div>
     </section>
 
@@ -228,6 +253,7 @@ type RejectionEntry = {
   z: Int32Array;
   status?: 'accepted' | 'rejected';
   maxCoeff: number;
+  wouldReject?: boolean;
   faulted?: boolean;
 };
 
@@ -245,6 +271,29 @@ function formatNumber(value: number, digits = 2): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+/** Yield to the browser so a pending DOM update actually paints before heavy work. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
+/** Run `work` while the button shows a busy state and is disabled, then restore it. */
+async function withBusy<T>(button: HTMLButtonElement, label: string, work: () => Promise<T>): Promise<T> {
+  const original = button.textContent;
+  button.disabled = true;
+  button.dataset.busy = 'true';
+  button.textContent = label;
+  await nextFrame();
+  try {
+    return await work();
+  } finally {
+    button.disabled = false;
+    delete button.dataset.busy;
+    button.textContent = original;
+  }
 }
 
 function clearPlot(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
@@ -291,6 +340,7 @@ function drawLineSeries(
   seriesList: number[][],
   colors: string[],
   highlights: number[] = [],
+  dashes: number[][] = [],
 ): void {
   const ctx = clearPlot(canvas);
   const { min, max } = valueRange(seriesList);
@@ -302,6 +352,9 @@ function drawLineSeries(
     ctx.beginPath();
     ctx.lineWidth = highlights.includes(seriesIndex) ? 2.4 : 1.35;
     ctx.strokeStyle = colors[seriesIndex] ?? '#00ff66';
+    // Distinct dash pattern per series so the lines stay distinguishable
+    // without relying on color alone (WCAG 1.4.1).
+    ctx.setLineDash(dashes[seriesIndex] ?? []);
 
     series.forEach((value, index) => {
       const x = pad + (index / Math.max(series.length - 1, 1)) * usableWidth;
@@ -315,6 +368,8 @@ function drawLineSeries(
 
     ctx.stroke();
   });
+
+  ctx.setLineDash([]);
 }
 
 function drawHistogram(
@@ -343,13 +398,17 @@ function drawHistogram(
     secondary[idx] += 1;
   });
 
-  const maxCount = Math.max(...primary, ...secondary, 1);
+  // Normalize each series to its own peak so the two distributions are
+  // compared by shape, not by sample count (the accepted and faulted sets
+  // legitimately differ in size).
+  const maxPrimary = Math.max(...primary, 1);
+  const maxSecondary = Math.max(...secondary, 1);
 
   for (let i = 0; i < bins; i += 1) {
     const x = 12 + (i / bins) * (canvas.width - 24);
     const width = (canvas.width - 24) / bins - 2;
-    const h1 = (primary[i] / maxCount) * (canvas.height - 32);
-    const h2 = (secondary[i] / maxCount) * (canvas.height - 32);
+    const h1 = (primary[i] / maxPrimary) * (canvas.height - 32);
+    const h2 = (secondary[i] / maxSecondary) * (canvas.height - 32);
 
     ctx.fillStyle = 'rgba(0, 212, 255, 0.55)';
     ctx.fillRect(x, canvas.height - 12 - h1, width, h1);
@@ -361,14 +420,22 @@ function drawHistogram(
   }
 
   if (typeof highlightValue === 'number') {
-    const normalized = (highlightValue - min) / span;
-    const x = 12 + normalized * (canvas.width - 24);
-    ctx.strokeStyle = '#ff3366';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x, 10);
-    ctx.lineTo(x, canvas.height - 10);
-    ctx.stroke();
+    // Draw the ±bound as dashed guide lines so the faulted tails that spill
+    // past the rejection boundary are unmistakable.
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    for (const bound of [highlightValue, -highlightValue]) {
+      const x = 12 + ((bound - min) / span) * (canvas.width - 24);
+      if (x < 12 || x > canvas.width - 12) {
+        continue;
+      }
+      ctx.beginPath();
+      ctx.moveTo(x, 10);
+      ctx.lineTo(x, canvas.height - 10);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
   }
 }
 
@@ -518,46 +585,89 @@ async function generateTraces(): Promise<void> {
   cpaResults.innerHTML = '<p>Traces generated. Ready to test all 3,329 hypotheses.</p>';
 }
 
-traceCanvas.addEventListener('mousemove', (event) => {
-  if (traceState.traces.length === 0) {
+// Power-trace readout, reachable by mouse, touch, AND keyboard so the exhibit
+// meets WCAG 2.1.1 and works on mobile. `traceCursor` is the focused sample.
+let traceCursor = 0;
+
+function showTraceSample(sampleIndex: number): void {
+  const trace = traceState.traces[0];
+  if (!trace) {
     return;
   }
+  traceCursor = clamp(sampleIndex, 0, trace.length - 1);
+  const power = trace[traceCursor] ?? 0;
+  traceHover.textContent = `Sample ${traceCursor} of ${trace.length - 1}: measured power ${formatNumber(power, 3)} — see the butterfly cards below for the exact Hamming weights.`;
+}
 
+function sampleFromClientX(clientX: number): number {
+  const trace = traceState.traces[0];
+  if (!trace) {
+    return 0;
+  }
   const rect = traceCanvas.getBoundingClientRect();
-  const sampleIndex = clamp(
-    Math.round(((event.clientX - rect.left) / Math.max(rect.width, 1)) * (traceState.traces[0]!.length - 1)),
-    0,
-    traceState.traces[0]!.length - 1,
-  );
+  return Math.round(((clientX - rect.left) / Math.max(rect.width, 1)) * (trace.length - 1));
+}
 
-  const power = traceState.traces[0]?.[sampleIndex] ?? 0;
-  traceHover.textContent = `Sample ${sampleIndex}: measured power ${formatNumber(power, 3)} — inspect the butterfly cards below for the exact Hamming weights.`;
+traceCanvas.addEventListener('mousemove', (event) => {
+  showTraceSample(sampleFromClientX(event.clientX));
+});
+
+traceCanvas.addEventListener('touchmove', (event) => {
+  const touch = event.touches[0];
+  if (!touch) {
+    return;
+  }
+  event.preventDefault(); // keep the readout from scrolling the page
+  showTraceSample(sampleFromClientX(touch.clientX));
+}, { passive: false });
+
+traceCanvas.addEventListener('keydown', (event) => {
+  const trace = traceState.traces[0];
+  if (!trace) {
+    return;
+  }
+  const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1
+    : event.key === 'Home' ? -trace.length : event.key === 'End' ? trace.length : 0;
+  if (step === 0) {
+    return;
+  }
+  event.preventDefault();
+  showTraceSample(traceCursor + step);
 });
 
 must<HTMLButtonElement>('#generate-traces-btn').addEventListener('click', () => {
   void generateTraces();
 });
 
-must<HTMLButtonElement>('#run-cpa-btn').addEventListener('click', async () => {
-  if (traceState.traces.length === 0) {
-    await generateTraces();
-  }
+const runCpaButton = must<HTMLButtonElement>('#run-cpa-btn');
+runCpaButton.addEventListener('click', () => {
+  void withBusy(runCpaButton, 'Running CPA…', async () => {
+    if (traceState.traces.length === 0) {
+      await generateTraces();
+    }
 
-  cpaResults.innerHTML = '<p>Running CPA across 3,329 key guesses…</p>';
-  const scores = correlationPowerAnalysis(traceState.traces, traceState.ciphertexts, 1);
-  const ranked = Array.from(scores, (score, key) => ({ key, score: Math.abs(score) }))
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 5);
+    cpaResults.innerHTML = `<p>Running CPA across ${Q.toLocaleString()} key guesses over ${traceState.traces.length} traces…</p>`;
+    await nextFrame();
 
-  drawCorrelationPlot(cpaCanvas, scores, traceState.secret);
+    const scores = correlationPowerAnalysis(traceState.traces, traceState.ciphertexts, 1);
+    const ranked = Array.from(scores, (score, key) => ({ key, score: Math.abs(score) }))
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 5);
 
-  cpaResults.innerHTML = `
-    <p><strong>Best correlation:</strong> k = ${ranked[0]?.key} (${formatNumber(ranked[0]?.score ?? 0, 3)})</p>
-    <p><strong>Correct key:</strong> sk[0] = ${traceState.secret} ${ranked[0]?.key === traceState.secret ? '✓ RECOVERED' : '• close but noisy'}</p>
-    <ul>
-      ${ranked.map((entry) => `<li>k = ${entry.key} → ${formatNumber(entry.score, 3)}</li>`).join('')}
-    </ul>
-  `;
+    drawCorrelationPlot(cpaCanvas, scores, traceState.secret);
+
+    const recovered = ranked[0]?.key === traceState.secret;
+    const margin = ranked.length > 1 ? (ranked[0]!.score - ranked[1]!.score) : 0;
+
+    cpaResults.innerHTML = `
+      <p><strong>Best correlation:</strong> k = ${ranked[0]?.key} (${formatNumber(ranked[0]?.score ?? 0, 3)})</p>
+      <p><strong>Correct key:</strong> sk[0] = ${traceState.secret} ${recovered ? '✓ RECOVERED' : '• top guess is off — add traces or lower noise'}</p>
+      <p class="small-text">Lead over 2nd-best hypothesis: ${formatNumber(margin, 3)}</p>
+      <ul>
+        ${ranked.map((entry) => `<li>k = ${entry.key} → ${formatNumber(entry.score, 3)}</li>`).join('')}
+      </ul>
+    `;
+  });
 });
 
 function flattenCoefficients(entries: RejectionEntry[], limit = 4000): number[] {
@@ -565,26 +675,37 @@ function flattenCoefficients(entries: RejectionEntry[], limit = 4000): number[] 
 }
 
 function renderRejectionLogs(): void {
-  normalLog.innerHTML = normalEntries.length === 0
-    ? 'No normal signatures collected yet.'
-    : `<ul>${normalEntries.slice(0, 8).map((entry, index) => `<li>Attempt ${index + 1}: z_max = ${entry.maxCoeff} ${entry.status === 'accepted' ? '✓ Accept' : '✗ Reject'}</li>`).join('')}</ul>`;
+  if (normalEntries.length === 0) {
+    normalLog.innerHTML = 'No normal signatures collected yet.';
+  } else {
+    const accepted = normalEntries.filter((entry) => entry.status === 'accepted').length;
+    normalLog.innerHTML = `
+      <p class="small-text">${accepted} of ${normalEntries.length} attempts accepted; the rest were resampled. Every accepted z stays within the γ₁−β bound.</p>
+      <ul>${normalEntries.slice(0, 8).map((entry, index) => `<li>Attempt ${index + 1}: z_max = ${entry.maxCoeff} ${entry.status === 'accepted' ? '✓ Accept' : '✗ Reject'}</li>`).join('')}</ul>`;
+  }
 
-  faultedLog.innerHTML = faultedEntries.length === 0
-    ? 'No faulted signatures collected yet.'
-    : `<ul>${faultedEntries.slice(0, 8).map((entry, index) => `<li>Signature ${index + 1}: z_max = ${entry.maxCoeff} ⚠ SHOULD REJECT — bypassed</li>`).join('')}</ul>`;
+  if (faultedEntries.length === 0) {
+    faultedLog.innerHTML = 'No faulted signatures collected yet.';
+  } else {
+    const leaked = faultedEntries.filter((entry) => entry.wouldReject).length;
+    const pct = formatNumber((leaked / faultedEntries.length) * 100, 0);
+    faultedLog.innerHTML = `
+      <p class="small-text">${leaked} of ${faultedEntries.length} released signatures (${pct}%) exceed the γ₁−β bound a correct signer would have rejected.</p>
+      <ul>${faultedEntries.slice(0, 8).map((entry, index) => `<li>Signature ${index + 1}: z_max = ${entry.maxCoeff} ${entry.wouldReject ? '⚠ over bound — leaked' : '• within bound — released'}</li>`).join('')}</ul>`;
+  }
 
   const normalValues = flattenCoefficients(normalEntries.filter((entry) => entry.status === 'accepted'));
   const faultValues = flattenCoefficients(faultedEntries);
 
   if (normalValues.length > 0 || faultValues.length > 0) {
-    drawHistogram(rejectionCanvas, normalValues, undefined, faultValues);
+    drawHistogram(rejectionCanvas, normalValues, ML_DSA_PARAMS.gamma1 - ML_DSA_PARAMS.beta, faultValues);
   }
 }
 
 must<HTMLButtonElement>('#normal-sign-btn').addEventListener('click', async () => {
   rejectionSecret = new Int32Array(Array.from({ length: 256 }, () => randomIntInclusive(-ML_DSA_PARAMS.eta, ML_DSA_PARAMS.eta)));
   rejectionChallenge = new Int32Array(Array.from({ length: 256 }, () => (randomIntInclusive(0, 1) === 0 ? -1 : 1)));
-  normalEntries = await signWithRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 20);
+  normalEntries = await signWithRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 300);
   renderRejectionLogs();
 });
 
@@ -594,17 +715,33 @@ must<HTMLButtonElement>('#faulted-sign-btn').addEventListener('click', async () 
     rejectionChallenge = new Int32Array(Array.from({ length: 256 }, () => (randomIntInclusive(0, 1) === 0 ? -1 : 1)));
   }
 
-  faultedEntries = await signWithFaultedRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 20);
+  faultedEntries = await signWithFaultedRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 300);
   renderRejectionLogs();
 });
 
-must<HTMLButtonElement>('#recover-btn').addEventListener('click', async () => {
-  if (faultedEntries.length < 20) {
-    faultedEntries = await signWithFaultedRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 1000);
-    renderRejectionLogs();
-  } else {
-    faultedEntries = await signWithFaultedRejection(rejectionSecret, rejectionChallenge, ML_DSA_PARAMS, 1000);
-  }
+const recoverButton = must<HTMLButtonElement>('#recover-btn');
+recoverButton.addEventListener('click', () => {
+  void withBusy(recoverButton, 'Recovering key…', runRecovery);
+});
+
+const RECOVERY_SIGNATURE_COUNT = 8000;
+
+async function runRecovery(): Promise<void> {
+  recoveryPanel.innerHTML = `<p>Collecting ${RECOVERY_SIGNATURE_COUNT.toLocaleString()} faulted signatures and averaging out the random nonce…</p>`;
+  await nextFrame();
+
+  faultedEntries = await signWithFaultedRejection(
+    rejectionSecret,
+    rejectionChallenge,
+    ML_DSA_PARAMS,
+    RECOVERY_SIGNATURE_COUNT,
+    (pct) => {
+      recoveryPanel.innerHTML = `<p>Collecting faulted signatures… ${formatNumber(pct, 0)}%</p>`;
+    },
+  );
+  renderRejectionLogs();
+  recoveryPanel.innerHTML = '<p>Solving for s₁ across 256 coefficients…</p>';
+  await nextFrame();
 
   const recovery = recoverFromFaultySignatures(
     faultedEntries.map((entry) => entry.z),
@@ -621,36 +758,39 @@ must<HTMLButtonElement>('#recover-btn').addEventListener('click', async () => {
 
   const rate = (correct / rejectionSecret.length) * 100;
   recoveryPanel.innerHTML = `
-    <p><strong>Recovery rate:</strong> ${formatNumber(rate, 1)}% coefficients correct</p>
+    <p><strong>Recovery rate:</strong> ${formatNumber(rate, 1)}% — ${correct} of ${rejectionSecret.length} secret coefficients exactly recovered (random guessing ≈ 20%).</p>
     <p>Sample recovery:</p>
     <ul>
       ${Array.from({ length: 8 }, (_, index) => `<li>s₁[${index}] ≈ ${recovery.recovered[index]} (actual ${rejectionSecret[index]}) • confidence ${formatNumber(recovery.confidence[index] ?? 0, 2)}</li>`).join('')}
     </ul>
     <p><strong>Countermeasure:</strong> recompute and verify the output before returning the signature.</p>
   `;
-});
+}
 
 function drawTimingOverlay(): void {
   const lines: number[][] = [];
   const colors: string[] = [];
   const highlights: number[] = [];
+  const dashes: number[][] = [];
 
   if (timingState.vulnerable) {
     lines.push(Array.from(timingState.vulnerable.timings).filter((_, index) => index % 8 === 0));
     colors.push('#ff3366');
     highlights.push(0);
+    dashes.push([]); // vulnerable: solid
   }
 
   if (timingState['constant-time']) {
     lines.push(Array.from(timingState['constant-time'].timings).filter((_, index) => index % 8 === 0));
     colors.push('#00d4ff');
     highlights.push(lines.length - 1);
+    dashes.push([7, 5]); // constant-time: dashed, so the two are told apart without color
   }
 
   if (lines.length === 0) {
     drawLineSeries(timingCanvas, [[0, 0.2, 0.1, 0.15, 0.1]], ['#1a4a2a']);
   } else {
-    drawLineSeries(timingCanvas, lines, colors, highlights);
+    drawLineSeries(timingCanvas, lines, colors, highlights, dashes);
   }
 }
 
@@ -674,20 +814,33 @@ function renderTimingReport(): void {
   timingResults.innerHTML = blocks.join('') + comparison;
 }
 
+const vulnerableButton = must<HTMLButtonElement>('#run-vulnerable-btn');
+const constantButton = must<HTMLButtonElement>('#run-constant-btn');
+
 async function runTiming(kind: TimingKey): Promise<void> {
+  // Disable both timing buttons: concurrent runs would contend for the CPU and
+  // corrupt each other's measurements.
+  vulnerableButton.disabled = true;
+  constantButton.disabled = true;
   timingResults.innerHTML = `<p>Measuring ${kind} decoding timings…</p>`;
-  timingState[kind] = await timingExperiment(kind, 4, (pct) => {
-    timingResults.innerHTML = `<p>Measuring ${kind} decoding timings… ${formatNumber(pct, 0)}%</p>`;
-  });
-  drawTimingOverlay();
-  renderTimingReport();
+  await nextFrame();
+  try {
+    timingState[kind] = await timingExperiment(kind, 4, (pct) => {
+      timingResults.innerHTML = `<p>Measuring ${kind} decoding timings… ${formatNumber(pct, 0)}%</p>`;
+    });
+    drawTimingOverlay();
+    renderTimingReport();
+  } finally {
+    vulnerableButton.disabled = false;
+    constantButton.disabled = false;
+  }
 }
 
-must<HTMLButtonElement>('#run-vulnerable-btn').addEventListener('click', () => {
+vulnerableButton.addEventListener('click', () => {
   void runTiming('vulnerable');
 });
 
-must<HTMLButtonElement>('#run-constant-btn').addEventListener('click', () => {
+constantButton.addEventListener('click', () => {
   void runTiming('constant-time');
 });
 

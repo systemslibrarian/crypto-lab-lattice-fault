@@ -121,46 +121,58 @@ export async function signWithRejection(
 }
 
 /**
- * Simulate signing WITH rejection bypass (fault injected).
- * rejection check is skipped — returns z even when too large.
+ * Simulate signing WITH the rejection bypass fault injected.
+ *
+ * A correct signer resamples y until z = y + c·s₁ clears the bound, so the
+ * released z is decorrelated from the secret. With the check faulted away, the
+ * device returns the FIRST z it computes, unconditionally — including the ones
+ * that should have been rejected. Each released z is therefore an unbiased
+ * sample y + c·s₁; the random y averages out over many signatures and the
+ * secret-dependent term c·s₁ survives (see recoverFromFaultySignatures).
+ *
+ * `wouldReject` flags the signatures a correct signer would have discarded —
+ * the visible smoking gun that the check was skipped.
  */
 export async function signWithFaultedRejection(
   secretKey: Int32Array,
   challenge: Int32Array,
   params: typeof ML_DSA_PARAMS,
   numSignatures: number,
+  onProgress?: (pct: number) => void,
 ): Promise<Array<{
   y: Int32Array;
   z: Int32Array;
   maxCoeff: number;
+  wouldReject: boolean;
   faulted: boolean;
 }>> {
   const outputs: Array<{
     y: Int32Array;
     z: Int32Array;
     maxCoeff: number;
+    wouldReject: boolean;
     faulted: boolean;
   }> = [];
 
-  let attempts = 0;
-  const maxAttempts = Math.max(numSignatures * 64, 512);
-
-  while (outputs.length < numSignatures && attempts < maxAttempts) {
-    attempts += 1;
+  for (let i = 0; i < numSignatures; i += 1) {
     const y = await sampleNonce(params.gamma1);
     const z = computeZ(secretKey, challenge, y);
     const check = rejectionCheck(z, params);
-
-    if (check.accepted) {
-      continue;
-    }
 
     outputs.push({
       y,
       z,
       maxCoeff: check.maxCoeff,
+      wouldReject: !check.accepted,
       faulted: true,
     });
+
+    // Yield to the event loop periodically so a long collection stays
+    // responsive and can report progress.
+    if (onProgress && (i & 1023) === 1023) {
+      onProgress(((i + 1) / numSignatures) * 100);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
   }
 
   return outputs;

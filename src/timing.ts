@@ -66,13 +66,17 @@ export async function measureDecodingTime(
             t = ((t + adjusted + 11 + round) / (3 + ((round + 1) & 3))) | 0;
           }
         }
-        sink ^= decodeMessageBitVulnerable(v) ^ (t & 0);
+        // Fold t (and t alone) into sink so the secret-dependent loop above
+        // cannot be eliminated by the JIT. (t & 1) keeps the data dependency
+        // live while contributing only a sub-nanosecond perturbation below.
+        sink ^= decodeMessageBitVulnerable(v) ^ (t & 1);
       } else {
         let t = ((HALF_Q * 2) / Q) | 0;
         for (let round = 0; round < 6; round += 1) {
           t = ((t + HALF_Q + 11 + round) / (3 + ((round + 1) & 3))) | 0;
         }
-        sink ^= decodeMessageBitConstantTime(v) ^ (t & 0);
+        // Same fixed amount of work for every v: keep it live the same way.
+        sink ^= decodeMessageBitConstantTime(v) ^ (t & 1);
       }
     }
 

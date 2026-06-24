@@ -11,6 +11,7 @@
   --accent-soft: #00d4ff;
   --danger: #ff3366;
   --shadow: 0 0 28px rgba(0, 255, 102, 0.08);
+  --box: rgba(4, 19, 10, 0.72);
   font-family: Inter, "Segoe UI", sans-serif;
 }
 
@@ -27,10 +28,22 @@ html[data-theme='light'] {
   --accent-soft: #0066cc;
   --danger: #d92958;
   --shadow: 0 8px 30px rgba(0, 90, 40, 0.08);
+  --box: rgba(236, 250, 242, 0.85);
 }
 
 * {
   box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {
@@ -57,12 +70,18 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   border-color: rgba(0, 212, 255, 0.5);
 }
 
+button:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+canvas:focus-visible {
   outline: 2px solid var(--accent-soft);
   outline-offset: 2px;
 }
@@ -147,6 +166,17 @@ ul {
   color: var(--accent);
 }
 
+/* In light mode the brand accent (#008c44) only reaches ~4.2:1 on the near-white
+   panel — below WCAG AA (4.5:1) for this small uppercase text. Darken it here. */
+html[data-theme='light'] .eyebrow,
+html[data-theme='light'] .kicker {
+  color: #006a33;
+}
+
+h1 {
+  overflow-wrap: anywhere;
+}
+
 h1,
 h2,
 h3,
@@ -193,13 +223,21 @@ p {
   padding: 0.85rem 1rem;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(4, 19, 10, 0.72);
+  background: var(--box);
 }
 
 .sim-warning {
   color: #ffe3ea;
   border-color: rgba(255, 51, 102, 0.35);
   background: rgba(60, 8, 20, 0.35);
+}
+
+/* Light theme: the dark maroon/near-white pairing above drops below AA, so use
+   a dark crimson on a light red wash instead. */
+html[data-theme='light'] .sim-warning {
+  color: #7a0b22;
+  border-color: rgba(217, 41, 88, 0.45);
+  background: rgba(217, 41, 88, 0.1);
 }
 
 .small-text,
@@ -218,11 +256,50 @@ p {
   padding: 0.85rem;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: rgba(4, 18, 10, 0.7);
+  background: var(--box);
 }
 
 .butterfly-card.hot {
   box-shadow: inset 0 0 0 1px rgba(255, 51, 102, 0.5);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+  margin: 0.5rem 0 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.chart-legend .axes {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.chart-legend .swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart-legend .swatch::before {
+  content: '';
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  background: var(--c, var(--accent));
+  box-shadow: 0 0 6px color-mix(in srgb, var(--c, var(--accent)) 55%, transparent);
+  flex: 0 0 auto;
+}
+
+.chart-legend .swatch-dash::before {
+  height: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-top: 2px dashed var(--c, var(--accent));
 }
 
 .comparison-table-wrap {
