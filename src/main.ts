@@ -90,6 +90,11 @@ app.innerHTML = `
       <div class="context-bar">
         <strong>Countermeasure:</strong> first-order masking and shuffling reduce leakage at a cost of roughly 2–4× runtime.
       </div>
+      <p class="exhibit-ref">
+        Real-world basis: Primas, Pessl &amp; Mangard, <em>Single-Trace Side-Channel Attacks on Masked
+        Lattice-Based Encryption</em>, CHES 2017 — full key recovery from one NTT trace.
+        <a href="https://eprint.iacr.org/2017/594" target="_blank" rel="noopener">ePrint 2017/594</a>
+      </p>
     </section>
 
     <section class="exhibit panel" id="attack-2">
@@ -132,6 +137,11 @@ app.innerHTML = `
         <button id="recover-btn">Run Key Recovery from 8,000 Faulty Signatures</button>
       </div>
       <div id="recovery-panel" class="result-box" aria-live="polite">Recovery panel idle.</div>
+      <p class="exhibit-ref">
+        Real-world basis: <em>Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels</em>,
+        IACR TCHES 2025 — recovers the ML-DSA private key once rejected/leaked responses are observed.
+        <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
+      </p>
     </section>
 
     <section class="exhibit panel" id="attack-3">
@@ -161,6 +171,14 @@ app.innerHTML = `
       <div class="context-bar">
         <strong>Browser note:</strong> Spectre mitigations reduce timer precision. This exhibit shows the principle, not nanosecond-fidelity lab measurements.
       </div>
+      <p class="exhibit-ref">
+        Real-world basis: Bernstein et al., <em>KyberSlash: Exploiting secret-dependent division timings in
+        Kyber implementations</em>, 2024 — recovered ML-KEM keys on Cortex-M4 / Raspberry Pi; since patched
+        with constant-time arithmetic.
+        <a href="https://kyberslash.cr.yp.to/" target="_blank" rel="noopener">kyberslash.cr.yp.to</a>
+        ·
+        <a href="https://eprint.iacr.org/2024/1049" target="_blank" rel="noopener">ePrint 2024/1049</a>
+      </p>
     </section>
 
     <section class="exhibit panel" id="attack-4">
@@ -186,6 +204,12 @@ app.innerHTML = `
         <span class="swatch" style="--c:#ff3366">faulted (zeroed nonce) region</span>
       </figcaption>
       <div id="keccak-results" class="result-box" aria-live="polite">Awaiting KECCAK simulation.</div>
+      <p class="exhibit-ref">
+        Real-world basis: Espitau, Fouque, Gérard &amp; Tibouchi, <em>Loop-Abort Faults on Lattice-Based
+        Fiat–Shamir and Hash-and-Sign Signatures</em>, SAC 2016 — a loop-abort fault leaves the commitment
+        (nonce) at zero, exposing the signing key.
+        <a href="https://eprint.iacr.org/2016/449" target="_blank" rel="noopener">ePrint 2016/449</a>
+      </p>
     </section>
 
     <section class="exhibit panel" id="attack-5">
@@ -197,7 +221,7 @@ app.innerHTML = `
         </div>
       </div>
 
-      <div class="comparison-table-wrap">
+      <div class="comparison-table-wrap" tabindex="0" role="region" aria-label="Attack and countermeasure comparison">
         <table>
           <thead>
             <tr>
@@ -236,6 +260,38 @@ app.innerHTML = `
             <li>crypto-lab-padding-oracle</li>
           </ul>
         </div>
+      </div>
+
+      <div class="panel inset-panel">
+        <h3>Further reading</h3>
+        <p class="small-text">
+          Standards: ML-KEM is <a href="https://csrc.nist.gov/pubs/fips/203/final" target="_blank" rel="noopener">NIST FIPS 203</a>;
+          ML-DSA is <a href="https://csrc.nist.gov/pubs/fips/204/final" target="_blank" rel="noopener">FIPS 204</a>
+          (both finalized 2024). The math is standardized — the attacks below target implementations.
+        </p>
+        <ul class="references-list">
+          <li>
+            <strong>NTT power SCA →</strong> Primas, Pessl &amp; Mangard, <em>Single-Trace Side-Channel Attacks
+            on Masked Lattice-Based Encryption</em>, CHES 2017.
+            <a href="https://eprint.iacr.org/2017/594" target="_blank" rel="noopener">ePrint 2017/594</a>
+          </li>
+          <li>
+            <strong>Rejection-sampling leakage →</strong> <em>Key Recovery of CRYSTALS-Dilithium via
+            Side-Channel Attacks</em>, IACR TCHES 2025.
+            <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
+          </li>
+          <li>
+            <strong>KyberSlash timing →</strong> Bernstein et al., <em>Exploiting secret-dependent division
+            timings in Kyber</em>, 2024.
+            <a href="https://kyberslash.cr.yp.to/" target="_blank" rel="noopener">kyberslash.cr.yp.to</a> ·
+            <a href="https://eprint.iacr.org/2024/1049" target="_blank" rel="noopener">ePrint 2024/1049</a>
+          </li>
+          <li>
+            <strong>Loop-abort faults →</strong> Espitau, Fouque, Gérard &amp; Tibouchi, <em>Loop-Abort Faults
+            on Lattice-Based Fiat–Shamir and Hash-and-Sign Signatures</em>, SAC 2016.
+            <a href="https://eprint.iacr.org/2016/449" target="_blank" rel="noopener">ePrint 2016/449</a>
+          </li>
+        </ul>
       </div>
     </section>
 

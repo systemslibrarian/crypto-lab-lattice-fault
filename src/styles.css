@@ -118,6 +118,28 @@ ul {
   padding: 1rem 0 2rem;
 }
 
+/* Keyboard users land on the sticky shared header first; this lets them jump
+   straight to the exhibits. Hidden until focused (WCAG 2.4.1). */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 1001;
+  padding: 0.6rem 1rem;
+  border-radius: 0 0 12px 12px;
+  background: var(--accent);
+  color: #041008;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -300,6 +322,45 @@ html[data-theme='light'] .sim-warning {
   background: none;
   box-shadow: none;
   border-top: 2px dashed var(--c, var(--accent));
+}
+
+.exhibit-ref {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-radius: 0 10px 10px 0;
+}
+
+.exhibit-ref a {
+  color: var(--accent-soft);
+  text-underline-offset: 2px;
+}
+
+/* In light mode --accent-soft (#0066cc) clears AA on the near-white wash; in
+   dark mode the cyan is bright enough. Keep the link distinct from body text. */
+html[data-theme='light'] .exhibit-ref a {
+  color: #0a4fb0;
+}
+
+.references-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.references-list a {
+  color: var(--accent-soft);
+}
+
+html[data-theme='light'] .references-list a {
+  color: #0a4fb0;
 }
 
 .comparison-table-wrap {

@@ -7,12 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "deploy": "npm run build && gh-pages -d dist"
   },
   "devDependencies": {
+    "axe-core": "^4.12.1",
     "gh-pages": "^6.3.0",
+    "jsdom": "^29.1.1",
     "tsx": "^4.19.2",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^2.1.9"
   }
 }
