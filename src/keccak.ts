@@ -26,8 +26,12 @@ async function pseudoShake256(input: Uint8Array, outBytes = 32): Promise<Uint8Ar
     const suffix = new Uint8Array(4);
     new DataView(suffix.buffer).setUint32(0, counter, true);
     const payload = concatBytes(input, suffix);
-    const buffer = payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', buffer as ArrayBuffer));
+    // Hand digest() a typed-array VIEW, not a raw ArrayBuffer: ArrayBuffer.isView()
+    // is realm-safe, so this works whether crypto comes from a browser, Node, or a
+    // jsdom test realm. (A raw cross-realm ArrayBuffer is rejected by Node's
+    // SubtleCrypto.) The copy also pins the type to Uint8Array<ArrayBuffer>.
+    const data = new Uint8Array(payload);
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
     out.set(digest.subarray(0, Math.min(digest.length, outBytes - offset)), offset);
     offset += digest.length;
     counter += 1;
