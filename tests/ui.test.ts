@@ -8,10 +8,18 @@ import { webcrypto } from 'node:crypto';
  * update. The unit suites prove the simulations are correct; this proves the
  * buttons are wired to them.
  *
- * jsdom ships no canvas or rAF, so we stub a no-op 2D context (the drawing code
- * only writes to it) and a setTimeout-backed requestAnimationFrame before the
+ * jsdom ships no canvas or rAF, so we install a *recording* 2D context (captures
+ * every draw call so tests can assert real drawing happened, not just that the
+ * code didn't throw) and a setTimeout-backed requestAnimationFrame before the
  * module's import-time side effects run.
  */
+
+type DrawLog = { calls: Record<string, number>; ops: Array<[string, unknown[]]> };
+const recorders = new WeakMap<HTMLCanvasElement, DrawLog>();
+
+/** Draw-call counts recorded for a given canvas, e.g. drawCalls('#trace-canvas').lineTo. */
+const drawCalls = (selector: string): Record<string, number> =>
+  recorders.get($<HTMLCanvasElement>(selector))?.calls ?? {};
 
 const tick = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -59,16 +67,31 @@ beforeAll(async () => {
     setTimeout(() => cb(performance.now()), 0) as unknown as number) as typeof requestAnimationFrame;
   globalThis.cancelAnimationFrame = ((id: number) => clearTimeout(id)) as typeof cancelAnimationFrame;
 
-  // No-op 2D context: every method call returns undefined, every property set
-  // is swallowed. The drawing code never reads back from the context.
-  const ctxStub = new Proxy(
-    {},
-    {
-      get: () => () => undefined,
-      set: () => true,
-    },
-  );
-  (HTMLCanvasElement.prototype as unknown as { getContext: () => unknown }).getContext = () => ctxStub;
+  // Recording 2D context: method calls are tallied per-canvas (so tests can
+  // assert the drawing code actually emitted ops), property sets are swallowed.
+  // The drawing code never reads back from the context.
+  (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = function (
+    this: HTMLCanvasElement,
+  ) {
+    let log = recorders.get(this);
+    if (!log) {
+      log = { calls: {}, ops: [] };
+      recorders.set(this, log);
+    }
+    const rec = log;
+    return new Proxy(
+      {},
+      {
+        get: (_target, prop: string) =>
+          (...args: unknown[]) => {
+            rec.calls[prop] = (rec.calls[prop] ?? 0) + 1;
+            rec.ops.push([prop, args]);
+            return undefined;
+          },
+        set: () => true,
+      },
+    );
+  };
 
   document.body.innerHTML = '<div id="app"></div>';
 
@@ -89,6 +112,14 @@ describe('initial render', () => {
     await waitFor(() => $('#butterfly-grid').children.length > 0);
     expect($('#butterfly-grid').querySelectorAll('.butterfly-card').length).toBeGreaterThan(0);
     expect(text('#cpa-results')).toMatch(/Traces generated|hypotheses/);
+  });
+
+  it('actually renders the power-trace polylines to the canvas', () => {
+    const c = drawCalls('#trace-canvas');
+    expect(c.clearRect ?? 0).toBeGreaterThan(0);
+    // 5 trace series × many samples each → lots of lineTo segments.
+    expect(c.lineTo ?? 0).toBeGreaterThan(20);
+    expect(c.stroke ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -114,6 +145,10 @@ describe('Attack 1 — CPA button recovers the key into the panel', () => {
     await waitFor(() => /Best correlation/.test(text('#cpa-results')));
     expect(text('#cpa-results')).toContain('sk[0] = 1234');
     expect(text('#cpa-results')).toContain('RECOVERED');
+    // The correlation plot was actually drawn (line + the true-key spike).
+    const c = drawCalls('#cpa-canvas');
+    expect(c.lineTo ?? 0).toBeGreaterThan(0);
+    expect(c.stroke ?? 0).toBeGreaterThan(0);
   }, 30000);
 });
 
@@ -124,10 +159,12 @@ describe('Attack 2 — signing + recovery panels', () => {
     expect(text('#normal-log')).toMatch(/of 300 attempts accepted/);
   }, 30000);
 
-  it('faulted signing reports leaked signatures', async () => {
+  it('faulted signing reports leaked signatures and draws the histogram', async () => {
     $<HTMLButtonElement>('#faulted-sign-btn').click();
     await waitFor(() => /released signatures/.test(text('#faulted-log')));
     expect(text('#faulted-log')).toMatch(/exceed the/);
+    // Distribution histogram bars were rendered.
+    expect(drawCalls('#rejection-canvas').fillRect ?? 0).toBeGreaterThan(0);
   }, 30000);
 
   it('key recovery reports a recovery rate', async () => {
@@ -138,18 +175,25 @@ describe('Attack 2 — signing + recovery panels', () => {
 });
 
 describe('Attack 3 — timing buttons update the report', () => {
-  it('running the constant-time experiment fills the results panel', async () => {
+  it('running the constant-time experiment fills the panel and redraws the chart', async () => {
+    const before = drawCalls('#timing-canvas').lineTo ?? 0;
     $<HTMLButtonElement>('#run-constant-btn').click();
     await waitFor(() => /Constant-time/.test(text('#timing-results')), 30000);
     expect(text('#timing-results')).toMatch(/gap =/);
+    // The timing overlay was re-rendered with the measured series.
+    expect(drawCalls('#timing-canvas').lineTo ?? 0).toBeGreaterThan(before);
   }, 30000);
 });
 
 describe('Attack 4 — KECCAK button reports a recovery', () => {
-  it('running the simulation recovers s1 into the panel', async () => {
+  it('running the simulation recovers s1 into the panel and draws both sponge states', async () => {
     $<HTMLButtonElement>('#run-keccak-btn').click();
     await waitFor(() => /Recovered s/.test(text('#keccak-results')));
     expect(text('#keccak-results')).toContain('match found');
+    // 5×5 lane grid for both runs (fillRect) plus the two titles (fillText).
+    const c = drawCalls('#keccak-canvas');
+    expect(c.fillRect ?? 0).toBeGreaterThan(40);
+    expect(c.fillText ?? 0).toBeGreaterThan(0);
   }, 30000);
 });
 
