@@ -9,13 +9,28 @@ This browser demo explains physical implementation attacks against ML-KEM and ML
 - Teaching post-quantum implementation risk. It connects concrete ML-KEM and ML-DSA operations to the side-channel and fault surfaces engineers must still defend.
 - Explaining why constant-time and masking countermeasures matter. It lets learners compare leaky and hardened behavior in the same browser session.
 - Demonstrating the physical-access threat model. It keeps the focus on probes, timing capture, and glitching rather than network-only attacks.
-- Not for validating a production device. The traces, recoveries, and timing gaps are simplified browser simulations rather than certified lab measurements.
+- Do NOT use it for validating a production device. The traces, recoveries, and timing gaps are simplified browser simulations rather than certified lab measurements.
 
 ## Live Demo
 
-Live site: https://systemslibrarian.github.io/crypto-lab-lattice-fault/
+**[systemslibrarian.github.io/crypto-lab-lattice-fault](https://systemslibrarian.github.io/crypto-lab-lattice-fault/)**
 
 In the demo, you can generate simulated power traces, run the CPA exhibit, compare normal and faulted signing behavior, and launch the timing and KECCAK views. Controls include the secret key coefficient, ciphertext coefficient, noise level, number of traces, and action buttons for each exhibit.
+
+## What Can Go Wrong
+
+- **Single-trace power analysis on the NTT** can recover secrets from masked lattice encryption when the implementation is not hardened (Exhibit 1).
+- **Faults in rejection sampling** during ML-DSA signing can leak signing-key information (Exhibit 2).
+- **Secret-dependent division timing (KyberSlash)** leaks ML-KEM key bits on some targets (Exhibit 3).
+- **Loop-abort or faulty-KECCAK faults** can zero a nonce or truncate a hash, breaking Fiat-Shamir and hash-and-sign signatures (Exhibit 4).
+- **Constant-time coding and masking are separate from mathematical security** — a FIPS-correct implementation can still leak physically without them.
+
+## Real-World Usage
+
+- Side-channel and fault resistance is a certification concern for **smartcards, secure elements, and HSMs** (Common Criteria, FIPS 140-3).
+- **Embedded and IoT PQC deployments** on ARM Cortex-M/A class parts are the exact targets the cited attacks use.
+- **Platform-trust and secure-boot modules** adopting ML-KEM/ML-DSA need masking and constant-time countermeasures.
+- The exhibits reconstruct **published academic attacks** (CHES 2017, IACR TCHES 2025, SAC 2016, and KyberSlash) that shaped these requirements.
 
 ## How to Run Locally
 
@@ -23,12 +38,16 @@ In the demo, you can generate simulated power traces, run the CPA exhibit, compa
 git clone https://github.com/systemslibrarian/crypto-lab-lattice-fault
 cd crypto-lab-lattice-fault
 npm install
-npm run dev      # start the dev server
-npm test         # run the test suite (Vitest): simulation logic + UI integration
-npm run build    # type-check (tsc) + production build
+npm run dev
 ```
 
-No environment variables are required.
+## Related Demos
+
+- [crypto-lab-kyberslash](https://systemslibrarian.github.io/crypto-lab-kyberslash/) — the ML-KEM division-timing attack reconstructed in Exhibit 3.
+- [crypto-lab-ciphertext-mirror](https://systemslibrarian.github.io/crypto-lab-ciphertext-mirror/) — ML-KEM FO-transform and decoder attack surface.
+- [crypto-lab-dilithium-reject](https://systemslibrarian.github.io/crypto-lab-dilithium-reject/) — ML-DSA rejection sampling and its timing trade-offs.
+- [crypto-lab-hqc-timing](https://systemslibrarian.github.io/crypto-lab-hqc-timing/) — a timing oracle in another post-quantum KEM.
+- [crypto-lab-broken-trust](https://systemslibrarian.github.io/crypto-lab-broken-trust/) — ML-DSA bit-leakage and subkey recovery.
 
 ## What the Exhibits Mirror
 
@@ -47,10 +66,15 @@ attack here. Each exhibit is a simplified, browser-friendly reconstruction of a 
 The numbers shown in-browser (recovered keys, recovery rates, timing gaps) are produced by the actual
 simulation code, which is exercised by the test suite in `tests/` on every CI run.
 
-## Part of the Crypto-Lab Suite
+```bash
+npm test         # run the test suite (Vitest): simulation logic + UI integration
+npm run build    # type-check (tsc) + production build
+```
 
-One of 60+ live browser demos at [systemslibrarian.github.io/crypto-lab](https://systemslibrarian.github.io/crypto-lab/) — spanning Atbash (600 BCE) through NIST FIPS 203/204/205 (2024).
+No environment variables are required.
 
 ---
 
-*"Whether you eat or drink, or whatever you do, do all to the glory of God." — 1 Corinthians 10:31*
+*One of 60+ browser demos in the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
+
+*"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
