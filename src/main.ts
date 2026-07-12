@@ -26,16 +26,19 @@ if (!app) {
 
 app.innerHTML = `
   <main class="app-shell">
-    <header class="topbar panel">
-      <div>
-        <p class="eyebrow">SIMULATED • implementation-security lab</p>
-        <h1>crypto-lab-lattice-fault</h1>
-        <p class="lede">
-          ML-KEM and ML-DSA remain mathematically secure. These exhibits show how
-          power leakage, timing variation, and physical faults can still recover secrets
-          from real devices unless countermeasures migrate too.
-        </p>
+    <header class="cl-hero">
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Lattice Fault Lab</h1>
+        <p class="cl-hero-sub">side-channel &amp; fault attacks on ML-KEM · ML-DSA</p>
       </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">
+          ML-KEM and ML-DSA are mathematically secure, but the chips running them can still leak secrets
+          through power, timing, or induced faults. Math security and implementation security are separate
+          requirements.
+        </p>
+      </aside>
       <button id="theme-toggle" class="theme-toggle" style="position: absolute; top: 0; right: 0" aria-label="Switch to light mode">🌙</button>
     </header>
 
