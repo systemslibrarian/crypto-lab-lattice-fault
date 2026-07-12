@@ -29,14 +29,18 @@ app.innerHTML = `
     <header class="cl-hero">
       <div class="cl-hero-main">
         <h1 class="cl-hero-title">Lattice Fault Lab</h1>
-        <p class="cl-hero-sub">side-channel &amp; fault attacks on ML-KEM · ML-DSA</p>
+        <p class="cl-hero-sub">Implementation attacks · ML-KEM · ML-DSA</p>
+        <p class="cl-hero-desc">
+          Simulates power (CPA) analysis, fault injection, and timing leaks against ML-KEM and ML-DSA so
+          you can watch a mathematically secure scheme give up its secret key through the hardware running it.
+        </p>
       </div>
       <aside class="cl-hero-why" aria-label="Why it matters">
         <span class="cl-hero-why-label">WHY IT MATTERS</span>
         <p class="cl-hero-why-text">
-          ML-KEM and ML-DSA are mathematically secure, but the chips running them can still leak secrets
-          through power, timing, or induced faults. Math security and implementation security are separate
-          requirements.
+          A cipher can be provably unbreakable on paper and still fall on a real chip. Deployments that
+          only check the math ship keys an attacker can extract with a probe or a glitch — implementation
+          security is a separate requirement that has to be earned in hardware.
         </p>
       </aside>
       <button id="theme-toggle" class="theme-toggle" style="position: absolute; top: 0; right: 0" aria-label="Switch to light mode">🌙</button>
