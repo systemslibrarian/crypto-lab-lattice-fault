@@ -245,6 +245,233 @@ html[data-theme='light'] .sim-warning {
   color: var(--muted);
 }
 
+/* ---- Table of contents / stepper ------------------------------------- */
+.toc {
+  margin-top: 1rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.toc-title {
+  margin-bottom: 0.4rem;
+  font-size: 1.05rem;
+}
+
+.toc-lede {
+  max-width: 70ch;
+  color: var(--muted);
+  margin-bottom: 0.9rem;
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  counter-reset: none;
+}
+
+.toc-list li a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--box);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.toc-list li a:hover,
+.toc-list li a:focus-visible {
+  border-color: var(--accent-soft);
+}
+
+.toc-num {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+html[data-theme='light'] .toc-num {
+  border-color: #006a33;
+  color: #006a33;
+}
+
+.toc-label {
+  font-weight: 700;
+}
+
+.toc-what {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---- Primer / "what's different" cards -------------------------------- */
+.primer {
+  margin: 0.9rem 0 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid var(--accent-soft);
+  background: color-mix(in srgb, var(--accent-soft) 8%, var(--box));
+}
+
+.primer h3 {
+  margin-bottom: 0.6rem;
+  font-size: 1rem;
+}
+
+.primer-terms {
+  display: grid;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.7rem;
+}
+
+.primer-terms dt {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.primer-terms dd {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+}
+
+@media (min-width: 640px) {
+  .primer-terms {
+    grid-template-columns: max-content 1fr;
+  }
+
+  .primer-terms dt {
+    grid-column: 1;
+  }
+
+  .primer-terms dd {
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+}
+
+.primer-thesis {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.primer code,
+.attacker-story code,
+.why-strip code,
+.context-bar code,
+.honesty-note code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.05em 0.35em;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+/* ---- Attacker-story framing ------------------------------------------ */
+.attacker-story {
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--danger);
+  border-radius: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--danger) 8%, var(--box));
+  color: var(--text);
+}
+
+/* ---- "Why this works" strip (CPA) ------------------------------------ */
+.why-strip {
+  margin: 0.9rem 0;
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+}
+
+.why-strip h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.honesty-note {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+}
+
+/* ---- Progressive-disclosure reveals ---------------------------------- */
+.attack-reveal {
+  margin-top: 1rem;
+  border-radius: 18px;
+}
+
+.attack-reveal > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.9rem;
+  padding: 1rem 1.15rem;
+  border-radius: 18px;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.attack-reveal > summary::-webkit-details-marker {
+  display: none;
+}
+
+.attack-reveal[open] > summary {
+  border-radius: 18px 18px 0 0;
+  border-bottom-color: transparent;
+}
+
+.attack-reveal > summary:hover,
+.attack-reveal > summary:focus-visible {
+  border-color: var(--accent-soft);
+}
+
+.attack-reveal > summary:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
+.reveal-step {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+html[data-theme='light'] .reveal-step {
+  color: #006a33;
+}
+
+.reveal-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.reveal-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .butterfly-grid {
   display: grid;
   gap: 0.75rem;

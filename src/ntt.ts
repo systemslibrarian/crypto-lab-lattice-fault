@@ -264,6 +264,55 @@ function pearson(xs: number[], ys: number[]): number {
  * Returns correlation scores for each key hypothesis.
  * Correct key hypothesis has highest absolute correlation.
  */
+/**
+ * Correlation-vs-trace-count growth curve for the "why this works" strip.
+ *
+ * At each checkpoint we run the SAME CPA over only the first `n` traces and
+ * record two numbers: the |correlation| the attack assigns to the TRUE secret,
+ * and the largest |correlation| any WRONG hypothesis reaches (the noise floor).
+ * With few traces the noise floor rides high and can even overtake the truth;
+ * as traces accumulate the noise averages down and the true key pulls clear.
+ *
+ * Nothing here is faked — it is the real Pearson correlation on real simulated
+ * traces, just evaluated at growing prefixes so the learner sees SNR improve.
+ */
+export function cpaCorrelationGrowth(
+  traces: Float64Array[],
+  ciphertextCoeffs: number[],
+  secretKey: number,
+  targetIndex: number,
+  checkpoints = 14,
+): { counts: number[]; trueScores: number[]; noiseFloor: number[] } {
+  const total = traces.length;
+  const counts: number[] = [];
+  const trueScores: number[] = [];
+  const noiseFloor: number[] = [];
+  if (total === 0) {
+    return { counts, trueScores, noiseFloor };
+  }
+
+  for (let step = 1; step <= checkpoints; step += 1) {
+    const n = Math.max(2, Math.round((total * step) / checkpoints));
+    const scores = correlationPowerAnalysis(
+      traces.slice(0, n),
+      ciphertextCoeffs.slice(0, n),
+      targetIndex,
+    );
+    const trueScore = Math.abs(scores[secretKey] ?? 0);
+    let floor = 0;
+    for (let k = 0; k < scores.length; k += 1) {
+      if (k === secretKey) continue;
+      const m = Math.abs(scores[k] ?? 0);
+      if (m > floor) floor = m;
+    }
+    counts.push(n);
+    trueScores.push(trueScore);
+    noiseFloor.push(floor);
+  }
+
+  return { counts, trueScores, noiseFloor };
+}
+
 export function correlationPowerAnalysis(
   traces: Float64Array[],
   ciphertextCoeffs: number[],

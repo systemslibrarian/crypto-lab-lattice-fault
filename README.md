@@ -2,7 +2,7 @@
 
 ## What It Is
 
-This browser demo explains physical implementation attacks against ML-KEM and ML-DSA, the post-quantum asymmetric primitives used for key encapsulation and digital signatures. It shows how power leakage, timing variation, rejection-sampling faults, and faulty KECCAK handling can expose secret-dependent behavior on hardware even when the underlying math remains secure. The demo is simulated and educational, and it does not claim a mathematical break of either standard.
+This browser demo explains physical implementation attacks against ML-KEM and ML-DSA, the post-quantum asymmetric primitives used for key encapsulation and digital signatures. It shows how power leakage, timing variation, rejection-sampling faults, and faulty KECCAK handling can expose secret-dependent behavior on hardware even when the underlying math remains secure. Each exhibit opens with a plain-language primer for the load-bearing terms (NTT, butterfly, Hamming weight, side-channel) and an "attacker story", and the four attacks are laid out as an ordered tour (power → fault → timing → fault-on-hashing) with progressive disclosure so complexity layers instead of dumping. The demo is simulated and educational, and it does not claim a mathematical break of either standard.
 
 ## When to Use It
 
@@ -21,8 +21,8 @@ In the demo, you can generate simulated power traces, run the CPA exhibit, compa
 
 - **Single-trace power analysis on the NTT** can recover secrets from masked lattice encryption when the implementation is not hardened (Exhibit 1).
 - **Faults in rejection sampling** during ML-DSA signing can leak signing-key information (Exhibit 2).
-- **Secret-dependent division timing (KyberSlash)** leaks ML-KEM key bits on some targets (Exhibit 3).
-- **Loop-abort or faulty-KECCAK faults** can zero a nonce or truncate a hash, breaking Fiat-Shamir and hash-and-sign signatures (Exhibit 4).
+- **Secret-dependent division timing (KyberSlash)** leaks ML-KEM key bits on some targets: a single secret-dependent integer division runs for a data-dependent number of shift-subtract cycles, so the decode times cluster by the secret bit. Exhibit 3 runs the real restoring-division model in a Web Worker and plots the two cycle-count clusters (which the constant-time build collapses into one) rather than relying on Spectre-throttled browser timers.
+- **Loop-abort or faulty-KECCAK faults** can zero the per-signature nonce, making the mask predictable and collapsing the `y + c·s₁` blinding that hides the ML-DSA key (Exhibit 4). The exhibit diffs the honest vs. faulted sponge lanes and shows the attacker recomputing the zeroed nonce from public data only.
 - **Constant-time coding and masking are separate from mathematical security** — a FIPS-correct implementation can still leak physically without them.
 
 ## Real-World Usage

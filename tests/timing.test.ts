@@ -4,6 +4,8 @@ import {
   decodeMessageBitConstantTime,
   decodeMessageBitVulnerable,
   measureDecodingTime,
+  runClusterExperiment,
+  softwareDivideCycles,
   timingExperiment,
 } from '../src/timing';
 
@@ -29,6 +31,34 @@ describe('measureDecodingTime', () => {
     expect(Number.isFinite(result.meanUs)).toBe(true);
     expect(result.meanUs).toBeGreaterThanOrEqual(0);
     expect(result.stdUs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('softwareDivideCycles (the real KyberSlash mechanism)', () => {
+  it('cycle count grows with the (secret-dependent) dividend once it exceeds the divisor', () => {
+    // A larger dividend has more significant bits ⇒ more shift-subtract steps.
+    // (Below the divisor the divide is trivially one step, as in real hardware.)
+    const q = 3329;
+    const small = softwareDivideCycles(q * 2, q);
+    const large = softwareDivideCycles(q * 200, q);
+    expect(large).toBeGreaterThan(small);
+    expect(small).toBeGreaterThan(0);
+  });
+});
+
+describe('runClusterExperiment (two-cluster leak / constant-time collapse)', () => {
+  it('vulnerable divide separates the two secret classes', () => {
+    const exp = runClusterExperiment('vulnerable', 500);
+    expect(exp.small).toHaveLength(500);
+    expect(exp.large).toHaveLength(500);
+    expect(exp.meanLarge).toBeGreaterThan(exp.meanSmall);
+    expect(exp.separated).toBe(true);
+  });
+
+  it('constant-time divide collapses both classes onto one value (no leak)', () => {
+    const exp = runClusterExperiment('constant-time', 500);
+    expect(exp.meanSmall).toBe(exp.meanLarge);
+    expect(exp.separated).toBe(false);
   });
 });
 

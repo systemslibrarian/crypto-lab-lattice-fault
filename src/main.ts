@@ -6,9 +6,17 @@ import {
   signWithFaultedRejection,
   signWithRejection,
 } from './rejection';
-import { Q, correlationPowerAnalysis, hammingWeight, nttButterfly, simulatePowerTrace } from './ntt';
+import {
+  Q,
+  correlationPowerAnalysis,
+  cpaCorrelationGrowth,
+  hammingWeight,
+  nttButterfly,
+  simulatePowerTrace,
+} from './ntt';
 import { randomIntInclusive } from './random';
-import { timingExperiment } from './timing';
+import { runClusterExperiment, type ClusterExperiment } from './timing';
+import type { TimingWorkerRequest } from './timing.worker';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 
@@ -37,6 +45,21 @@ app.innerHTML = `
       and ML-DSA are not mathematically broken; these are implementation attacks.
     </section>
 
+    <nav class="toc panel" aria-label="Tour of the four attacks">
+      <h2 class="toc-title">Start here — four implementation attacks, in order</h2>
+      <p class="toc-lede">
+        Each attack targets a different physical leak. Read them top to bottom: the vocabulary
+        builds up, and each one is a little more subtle than the last. The last exhibit steps back
+        to the big picture.
+      </p>
+      <ol class="toc-list">
+        <li><a href="#attack-1"><span class="toc-num">1</span> <span class="toc-label">Power analysis</span> <span class="toc-what">read the chip's power draw during the NTT multiply</span></a></li>
+        <li><a href="#attack-2"><span class="toc-num">2</span> <span class="toc-label">Fault injection</span> <span class="toc-what">glitch away the rejection check so it leaks the key</span></a></li>
+        <li><a href="#attack-3"><span class="toc-num">3</span> <span class="toc-label">Timing (KyberSlash)</span> <span class="toc-what">a secret-dependent division runs for a different number of cycles</span></a></li>
+        <li><a href="#attack-4"><span class="toc-num">4</span> <span class="toc-label">Fault on hashing</span> <span class="toc-what">glitch KECCAK so the secret nonce becomes predictable</span></a></li>
+      </ol>
+    </nav>
+
     <section class="exhibit panel" id="attack-1">
       <div class="exhibit-head">
         <div>
@@ -45,6 +68,27 @@ app.innerHTML = `
           <p>Regular, branch-free NTT arithmetic still leaks through Hamming-weight power variations.</p>
         </div>
       </div>
+
+      <div class="primer" role="note" aria-label="Key terms for this exhibit">
+        <h3>New to this? Four terms first</h3>
+        <dl class="primer-terms">
+          <dt>NTT</dt>
+          <dd>The <em>Number-Theoretic Transform</em> — the fast multiply step inside lattice crypto. ML-KEM multiplies polynomials by turning them into NTT form, multiplying point-by-point, then transforming back. The secret key flows through it.</dd>
+          <dt>Butterfly</dt>
+          <dd>One arithmetic step of the NTT: given two numbers <code>a</code> and <code>b</code> and a twiddle <code>w</code>, compute <code>a + w·b</code> and <code>a − w·b</code>. The transform is just thousands of butterflies.</dd>
+          <dt>Hamming weight</dt>
+          <dd>The number of 1-bits in a value. A chip draws roughly <em>more current when it moves more 1-bits</em> — so power consumption tracks the Hamming weight of the data on the bus.</dd>
+          <dt>Side-channel</dt>
+          <dd>Information that leaks through a physical channel (power, time, EM) rather than the algorithm's output. Here we <em>read the power draw</em> to guess the secret coefficient that shaped it.</dd>
+        </dl>
+        <p class="primer-thesis">The math is fine. The chip leaks. Those are two separate promises, and this exhibit breaks only the second.</p>
+      </div>
+
+      <p class="attacker-story">
+        <strong>You are the attacker:</strong> you have a decapsulation device (a smartcard) doing ML-KEM
+        on your bench, a power probe across its supply pin, and an oscilloscope. Each decryption runs the
+        same NTT over your chosen ciphertext. You want the one secret coefficient <code>sk[0]</code> it keeps hidden.
+      </p>
 
       <div class="grid-2">
         <div class="panel inset-panel">
@@ -87,6 +131,28 @@ app.innerHTML = `
         <span class="swatch" style="--c:#ff3366">true secret key</span>
       </figcaption>
 
+      <div class="why-strip">
+        <h3>Why does this work? Watch the signal separate from the noise</h3>
+        <p class="small-text">
+          As traces accumulate, the correlation for the <em>true</em> key climbs above the scatter of
+          every wrong guess. One trace is nearly all noise; many traces average the noise down until
+          the correct hypothesis stands alone.
+        </p>
+        <canvas id="cpa-growth-canvas" width="600" height="150" role="img" aria-label="Correlation of the true key hypothesis rising above the wrong-guess noise floor as traces accumulate"></canvas>
+        <figcaption class="chart-legend">
+          <span class="axes">X: number of traces used &nbsp;·&nbsp; Y: |correlation|</span>
+          <span class="swatch" style="--c:#ff3366">true key</span>
+          <span class="swatch swatch-dash" style="--c:#7fd0ff">noise floor (best wrong guess)</span>
+        </figcaption>
+        <p class="small-text honesty-note">
+          <strong>Honest caveat:</strong> real single-trace NTT SCA does not read a full 0–3328 coefficient
+          from one sample point. It correlates a leakage model over <em>many time samples</em> of the trace,
+          and typically recovers a few key bits per butterfly before combining them. This exhibit compresses
+          that into one correlation per hypothesis so the SNR intuition is visible — don't read it as
+          "one point reveals the whole secret."
+        </p>
+      </div>
+
       <div class="context-bar">
         <strong>Countermeasure:</strong> first-order masking and shuffling reduce leakage at a cost of roughly 2–4× runtime.
       </div>
@@ -97,6 +163,12 @@ app.innerHTML = `
       </p>
     </section>
 
+    <details class="attack-reveal" id="reveal-2">
+      <summary>
+        <span class="reveal-step">Next attack →</span>
+        <span class="reveal-title">Attack 2 · Fault injection on rejection sampling</span>
+        <span class="reveal-hint">Now we inject a fault instead of reading one. Expand to continue.</span>
+      </summary>
     <section class="exhibit panel" id="attack-2">
       <div class="exhibit-head">
         <div>
@@ -105,6 +177,25 @@ app.innerHTML = `
           <p>If the rejection check is skipped, the returned signature coefficients become statistically leaky.</p>
         </div>
       </div>
+
+      <div class="primer" role="note" aria-label="What's different this time">
+        <h3>What's different this time</h3>
+        <p class="small-text">
+          Attack 1 <em>read</em> a leak passively. This one <em>injects</em> a fault. ML-DSA normally
+          <strong>rejection-samples</strong>: it recomputes the signature <code>z = y + c·s₁</code> with a
+          fresh random <code>y</code> and throws it away if any coefficient is too big, only releasing the
+          safe ones — which decorrelates <code>z</code> from the secret. A voltage glitch that skips that
+          check makes the device release the <em>first</em> <code>z</code> unconditionally. Now
+          <code>z = y + c·s₁</code> is an unbiased sample; average many, the random <code>y</code> cancels,
+          and the secret term <code>c·s₁</code> survives.
+        </p>
+      </div>
+
+      <p class="attacker-story">
+        <strong>You are the attacker:</strong> a signing device (an HSM or smartcard) will sign messages you
+        submit. You glitch its power rail right as it evaluates the "is z within the bound?" check, so it
+        forgets to resample. You collect thousands of these leaked signatures and average away the nonce.
+      </p>
 
       <div class="sim-warning" role="note">
         ⚠ SIMULATED — this requires invasive fault injection against a signing device. The math is not broken.
@@ -143,34 +234,61 @@ app.innerHTML = `
         <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
       </p>
     </section>
+    </details>
 
+    <details class="attack-reveal" id="reveal-3">
+      <summary>
+        <span class="reveal-step">Next attack →</span>
+        <span class="reveal-title">Attack 3 · KyberSlash timing side-channel</span>
+        <span class="reveal-hint">No probe, no glitcher — just a stopwatch. Expand to continue.</span>
+      </summary>
     <section class="exhibit panel" id="attack-3">
       <div class="exhibit-head">
         <div>
           <p class="kicker">SIMULATED • timing side-channel</p>
           <h2>ATTACK 3: KYBERSLASH — TIMING SIDE-CHANNEL</h2>
-          <p>Data-dependent decoding work leaks a small but measurable timing difference; constant-time code flattens it.</p>
+          <p>A single secret-dependent integer division runs for a different number of cycles depending on the secret; constant-time code makes every division cost the same.</p>
         </div>
       </div>
+
+      <div class="primer" role="note" aria-label="What's different this time">
+        <h3>What's different this time</h3>
+        <p class="small-text">
+          Attacks 1–2 needed a probe or a glitcher. This one needs only a <em>stopwatch</em>. The bug is
+          one line: Kyber decodes a coefficient with an integer divide <code>(2·v + q/2) / q</code>, and the
+          <em>dividend carries the secret</em>. On a CPU with no hardware divider (Cortex-M4), that compiles
+          to a shift-subtract loop whose <strong>iteration count grows with the magnitude of the dividend</strong>.
+          Bigger secret-influenced value ⇒ more loop iterations ⇒ more cycles. Time the divide, learn the secret.
+        </p>
+      </div>
+
+      <p class="attacker-story">
+        <strong>You are the attacker:</strong> the target signs or decapsulates on request and you can
+        measure how long each call takes. You send many ciphertexts, sort the decode times into clusters,
+        and each cluster tells you one bit of the secret.
+      </p>
 
       <div class="sim-warning" role="note">
         ⚠ SIMULATED — real exploitation needs repeated timing capture from the target hardware. Browser timers are much noisier.
       </div>
 
       <div class="button-row">
-        <button id="run-vulnerable-btn">Run Timing Experiment — Vulnerable</button>
-        <button id="run-constant-btn">Run Timing Experiment — Constant Time</button>
+        <button id="run-vulnerable-btn">Run Divide Model — Vulnerable</button>
+        <button id="run-constant-btn">Run Divide Model — Constant Time</button>
       </div>
-      <canvas id="timing-canvas" width="600" height="220" role="img" aria-label="Timing profile for vulnerable and constant-time ML-KEM decoding"></canvas>
+      <canvas id="timing-canvas" width="600" height="240" role="img" aria-label="Histogram of restoring-division cycle counts, clustered by the secret bit each coefficient encodes"></canvas>
       <figcaption class="chart-legend">
-        <span class="axes">X: sampled coefficient &nbsp;·&nbsp; Y: decode time (µs)</span>
-        <span class="swatch" style="--c:#ff3366">vulnerable (data-dependent, solid)</span>
-        <span class="swatch swatch-dash" style="--c:#00d4ff">constant-time (dashed)</span>
+        <span class="axes">X: modeled divide cycles (restoring shift-subtract steps) &nbsp;·&nbsp; Y: count</span>
+        <span class="swatch" style="--c:#00d4ff">secret bit = 0 (small dividend)</span>
+        <span class="swatch" style="--c:#ff3366">secret bit = 1 (large dividend)</span>
       </figcaption>
-      <div id="timing-results" class="result-box" aria-live="polite">No timing measurements collected yet.</div>
       <div class="context-bar">
-        <strong>Browser note:</strong> Spectre mitigations reduce timer precision. This exhibit shows the principle, not nanosecond-fidelity lab measurements.
+        <strong>Why a histogram, not wall-clock:</strong> in-browser timers are quantized and Spectre-throttled,
+        so <code>performance.now()</code> often hides or even inverts the gap. So we plot the <em>modeled divide-cycle
+        count</em> from the real restoring-division routine instead. On a Cortex-M4 these two clusters are cleanly
+        separated in actual cycles; the constant-time build collapses them into one.
       </div>
+      <div id="timing-results" class="result-box" aria-live="polite">No divide-cycle measurements collected yet.</div>
       <p class="exhibit-ref">
         Real-world basis: Bernstein et al., <em>KyberSlash: Exploiting secret-dependent division timings in
         Kyber implementations</em>, 2024 — recovered ML-KEM keys on Cortex-M4 / Raspberry Pi; since patched
@@ -180,15 +298,41 @@ app.innerHTML = `
         <a href="https://eprint.iacr.org/2024/1049" target="_blank" rel="noopener">ePrint 2024/1049</a>
       </p>
     </section>
+    </details>
 
+    <details class="attack-reveal" id="reveal-4">
+      <summary>
+        <span class="reveal-step">Next attack →</span>
+        <span class="reveal-title">Attack 4 · Fault injection on KECCAK nonce generation</span>
+        <span class="reveal-hint">The subtlest one: remove randomness and the signature betrays its own key. Expand to continue.</span>
+      </summary>
     <section class="exhibit panel" id="attack-4">
       <div class="exhibit-head">
         <div>
           <p class="kicker">SIMULATED • faulty KECCAK absorption</p>
           <h2>ATTACK 4: FAULT INJECTION ON KECCAK SEED GENERATION</h2>
-          <p>A loop-abort fault can zero the nonce input, making the derived signing randomness attacker-predictable.</p>
+          <p>A loop-abort fault zeros the per-signature nonce, making the mask predictable — which collapses the y+c·s₁ blinding that hides the signing key.</p>
         </div>
       </div>
+
+      <div class="primer" role="note" aria-label="What's different this time">
+        <h3>What's different this time</h3>
+        <p class="small-text">
+          Attacks 1–3 read a leak; this one <em>removes randomness</em>. ML-DSA hides the secret in every
+          signature with a fresh nonce: it releases <code>z = y + c·s₁</code>, where <code>y</code> is a
+          one-time mask expanded from a KECCAK/SHAKE call. You see <code>z</code> and the challenge
+          <code>c</code>, but not <code>y</code> — so <code>s₁</code> stays hidden. A <em>loop-abort</em>
+          fault ends the nonce-expansion loop early, leaving <code>y</code> at a predictable value the
+          attacker can recompute from public data. Once <code>y</code> is known, subtract it and solve
+          <code>s₁ = (z − y) / (17·c)</code>. The blinding is gone.
+        </p>
+      </div>
+
+      <p class="attacker-story">
+        <strong>You are the attacker:</strong> you have physical access to a smartcard signing with ML-DSA.
+        You glitch its clock at the moment it expands the nonce, aborting that loop. The signature it hands
+        back is now masked by a nonce <em>you</em> can reconstruct — so its own output betrays the key.
+      </p>
 
       <div class="sim-warning" role="note">
         ⚠ SIMULATED — this is a physical-fault demo, not a practical browser attack tool.
@@ -197,12 +341,17 @@ app.innerHTML = `
       <div class="button-row">
         <button id="run-keccak-btn">Run Attack Simulation</button>
       </div>
-      <canvas id="keccak-canvas" width="600" height="260" role="img" aria-label="KECCAK sponge-state comparison between normal and faulted absorption"></canvas>
+      <canvas id="keccak-canvas" width="600" height="260" role="img" aria-label="KECCAK sponge-state comparison: the highlighted lanes are the bytes that actually differ between the honest and faulted nonce derivation"></canvas>
       <figcaption class="chart-legend">
-        <span class="axes">5×5 sponge state — left: normal absorb &nbsp;·&nbsp; right: faulted absorb</span>
+        <span class="axes">5×5 sponge state — left: honest absorb (random κ) &nbsp;·&nbsp; right: faulted absorb (κ zeroed)</span>
         <span class="swatch" style="--c:#00d4ff">lane byte intensity</span>
-        <span class="swatch" style="--c:#ff3366">faulted (zeroed nonce) region</span>
+        <span class="swatch" style="--c:#ff3366">lanes that actually differ (diffed, not hardcoded)</span>
       </figcaption>
+      <div class="context-bar">
+        <strong>Primitive caveat:</strong> the real derivation uses SHAKE-256 (a KECCAK sponge). This demo
+        substitutes SHA-256 in a counter-based XOF as a browser-native stand-in — the sponge <em>diffusion</em>
+        is illustrative, but the collapse of the <code>y</code>-mask is the faithful part of the lesson.
+      </div>
       <div id="keccak-results" class="result-box" aria-live="polite">Awaiting KECCAK simulation.</div>
       <p class="exhibit-ref">
         Real-world basis: Espitau, Fouque, Gérard &amp; Tibouchi, <em>Loop-Abort Faults on Lattice-Based
@@ -211,6 +360,7 @@ app.innerHTML = `
         <a href="https://eprint.iacr.org/2016/449" target="_blank" rel="noopener">ePrint 2016/449</a>
       </p>
     </section>
+    </details>
 
     <section class="exhibit panel" id="attack-5">
       <div class="exhibit-head">
@@ -301,8 +451,6 @@ app.innerHTML = `
 type Theme = 'dark' | 'light';
 
 type TimingKey = 'vulnerable' | 'constant-time';
-
-type TimingResult = Awaited<ReturnType<typeof timingExperiment>>;
 
 type RejectionEntry = {
   y: Int32Array;
@@ -526,6 +674,48 @@ function drawCorrelationPlot(canvas: HTMLCanvasElement, scores: Float64Array, se
   ctx.stroke();
 }
 
+function drawGrowthPlot(
+  canvas: HTMLCanvasElement,
+  counts: number[],
+  trueScores: number[],
+  noiseFloor: number[],
+): void {
+  const ctx = clearPlot(canvas);
+  if (counts.length === 0) {
+    return;
+  }
+  const pad = 20;
+  const usableW = canvas.width - pad * 2;
+  const usableH = canvas.height - pad * 2;
+  const maxCount = Math.max(...counts, 1);
+  const maxY = Math.max(...trueScores, ...noiseFloor, 0.1);
+
+  const xAt = (count: number): number => pad + (count / maxCount) * usableW;
+  const yAt = (value: number): number => pad + usableH - (value / maxY) * usableH;
+
+  const plot = (values: number[], color: string, dash: number[]): void => {
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.setLineDash(dash);
+    values.forEach((value, index) => {
+      const x = xAt(counts[index] ?? 0);
+      const y = yAt(value);
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+
+  // Noise floor first (behind), then the true-key curve on top.
+  plot(noiseFloor, '#7fd0ff', [7, 5]);
+  plot(trueScores, '#ff3366', []);
+}
+
 function updateThemeToggle(theme: Theme): void {
   themeButton.textContent = theme === 'dark' ? '🌙' : '☀️';
   themeButton.setAttribute(
@@ -548,6 +738,7 @@ themeButton.addEventListener('click', toggleTheme);
 
 const traceCanvas = must<HTMLCanvasElement>('#trace-canvas');
 const cpaCanvas = must<HTMLCanvasElement>('#cpa-canvas');
+const cpaGrowthCanvas = must<HTMLCanvasElement>('#cpa-growth-canvas');
 const rejectionCanvas = must<HTMLCanvasElement>('#rejection-canvas');
 const timingCanvas = must<HTMLCanvasElement>('#timing-canvas');
 const keccakCanvas = must<HTMLCanvasElement>('#keccak-canvas');
@@ -582,7 +773,7 @@ let rejectionSecret = new Int32Array(Array.from({ length: 256 }, () => randomInt
 let rejectionChallenge = new Int32Array(Array.from({ length: 256 }, () => (randomIntInclusive(0, 1) === 0 ? -1 : 1)));
 let normalEntries: RejectionEntry[] = [];
 let faultedEntries: RejectionEntry[] = [];
-const timingState: Partial<Record<TimingKey, TimingResult>> = {};
+const timingState: Partial<Record<TimingKey, ClusterExperiment>> = {};
 
 function renderSliderValues(): void {
   skValue.textContent = skSlider.value;
@@ -712,6 +903,14 @@ runCpaButton.addEventListener('click', () => {
 
     drawCorrelationPlot(cpaCanvas, scores, traceState.secret);
 
+    const growth = cpaCorrelationGrowth(
+      traceState.traces,
+      traceState.ciphertexts,
+      traceState.secret,
+      1,
+    );
+    drawGrowthPlot(cpaGrowthCanvas, growth.counts, growth.trueScores, growth.noiseFloor);
+
     const recovered = ranked[0]?.key === traceState.secret;
     const margin = ranked.length > 1 ? (ranked[0]!.score - ranked[1]!.score) : 0;
 
@@ -823,49 +1022,77 @@ async function runRecovery(): Promise<void> {
   `;
 }
 
-function drawTimingOverlay(): void {
-  const lines: number[][] = [];
-  const colors: string[] = [];
-  const highlights: number[] = [];
-  const dashes: number[][] = [];
+const CLUSTER_REPETITIONS = 4000;
+const CLUSTER_BINS = 40;
 
-  if (timingState.vulnerable) {
-    lines.push(Array.from(timingState.vulnerable.timings).filter((_, index) => index % 8 === 0));
-    colors.push('#ff3366');
-    highlights.push(0);
-    dashes.push([]); // vulnerable: solid
+/**
+ * Draw the two clusters of divide-cycle counts as an overlaid histogram.
+ * The "secret bit = 0" (small dividend) and "secret bit = 1" (large dividend)
+ * classes get their own colour; when they are cleanly separated the learner
+ * sees two distinct humps, and the constant-time build collapses them into one.
+ */
+function drawClusterHistogram(experiment: ClusterExperiment | undefined): void {
+  const ctx = clearPlot(timingCanvas);
+  if (!experiment) {
+    return;
   }
+  const all = [...experiment.small, ...experiment.large];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const span = Math.max(max - min, 1);
+  const binWidth = span / CLUSTER_BINS;
 
-  if (timingState['constant-time']) {
-    lines.push(Array.from(timingState['constant-time'].timings).filter((_, index) => index % 8 === 0));
-    colors.push('#00d4ff');
-    highlights.push(lines.length - 1);
-    dashes.push([7, 5]); // constant-time: dashed, so the two are told apart without color
-  }
+  const bin = (values: number[]): number[] => {
+    const out = new Array<number>(CLUSTER_BINS).fill(0);
+    values.forEach((value) => {
+      const idx = clamp(Math.floor((value - min) / binWidth), 0, CLUSTER_BINS - 1);
+      out[idx] += 1;
+    });
+    return out;
+  };
 
-  if (lines.length === 0) {
-    drawLineSeries(timingCanvas, [[0, 0.2, 0.1, 0.15, 0.1]], ['#1a4a2a']);
-  } else {
-    drawLineSeries(timingCanvas, lines, colors, highlights, dashes);
-  }
+  const smallBins = bin(experiment.small);
+  const largeBins = bin(experiment.large);
+  const peak = Math.max(...smallBins, ...largeBins, 1);
+  const usableH = timingCanvas.height - 30;
+  const barW = (timingCanvas.width - 24) / CLUSTER_BINS;
+
+  const drawBars = (bins: number[], color: string): void => {
+    ctx.fillStyle = color;
+    bins.forEach((count, i) => {
+      if (count === 0) return;
+      const x = 12 + i * barW;
+      const h = (count / peak) * usableH;
+      ctx.fillRect(x, timingCanvas.height - 12 - h, Math.max(barW - 1, 1), h);
+    });
+  };
+
+  // bit 0 (small dividend) in cyan, bit 1 (large dividend) in red; drawn
+  // semi-transparent so overlap (the constant-time case) is visible.
+  drawBars(smallBins, 'rgba(0, 212, 255, 0.62)');
+  drawBars(largeBins, 'rgba(255, 51, 102, 0.62)');
 }
 
 function renderTimingReport(): void {
   const vulnerable = timingState.vulnerable;
   const constant = timingState['constant-time'];
 
-  const blocks = [
-    vulnerable
-      ? `<p><strong>Vulnerable:</strong> bit0 = ${formatNumber(vulnerable.mean0, 4)} µs, bit1 = ${formatNumber(vulnerable.mean1, 4)} µs, gap = ${formatNumber(vulnerable.difference, 4)} µs</p>`
-      : '',
-    constant
-      ? `<p><strong>Constant-time:</strong> bit0 = ${formatNumber(constant.mean0, 4)} µs, bit1 = ${formatNumber(constant.mean1, 4)} µs, gap = ${formatNumber(constant.difference, 4)} µs</p>`
-      : '',
-  ].filter(Boolean);
+  const line = (label: string, x?: ClusterExperiment): string => {
+    if (!x) return '';
+    const gap = Math.abs(x.meanLarge - x.meanSmall);
+    return `<p><strong>${label}:</strong> bit-0 class ≈ ${formatNumber(x.meanSmall, 1)} cycles,
+      bit-1 class ≈ ${formatNumber(x.meanLarge, 1)} cycles, separation = ${formatNumber(gap, 1)} cycles —
+      ${x.separated ? 'clusters are cleanly distinguishable ✓ the secret bit leaks' : 'clusters overlap — no usable leak'}.</p>`;
+  };
+
+  const blocks = [line('Vulnerable divide', vulnerable), line('Constant-time divide', constant)].filter(Boolean);
 
   const comparison = vulnerable && constant
-    ? `<p><strong>Comparison:</strong> |gap| drops from ${formatNumber(Math.abs(vulnerable.difference), 4)} µs to ${formatNumber(Math.abs(constant.difference), 4)} µs.</p>`
-    : '<p>Run both experiments to compare the leakage gap.</p>';
+    ? `<p><strong>Comparison:</strong> the vulnerable divide separates the two secret classes by
+       ${formatNumber(Math.abs(vulnerable.meanLarge - vulnerable.meanSmall), 1)} cycles; the constant-time
+       divide collapses them to ${formatNumber(Math.abs(constant.meanLarge - constant.meanSmall), 1)} cycles —
+       one hump, no leak.</p>`
+    : '<p>Run both models to see the vulnerable clusters collapse under constant-time code.</p>';
 
   timingResults.innerHTML = blocks.join('') + comparison;
 }
@@ -873,18 +1100,40 @@ function renderTimingReport(): void {
 const vulnerableButton = must<HTMLButtonElement>('#run-vulnerable-btn');
 const constantButton = must<HTMLButtonElement>('#run-constant-btn');
 
+/**
+ * Run the cluster experiment. Prefer a Web Worker so the model runs off the main
+ * thread; fall back to a synchronous call when Worker is unavailable (e.g. the
+ * jsdom test realm). Either way the numbers come from runClusterExperiment.
+ */
+function runClusterInWorker(kind: TimingKey): Promise<ClusterExperiment> {
+  if (typeof Worker === 'undefined') {
+    return Promise.resolve(runClusterExperiment(kind, CLUSTER_REPETITIONS));
+  }
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./timing.worker.ts', import.meta.url), { type: 'module' });
+    worker.addEventListener('message', (event: MessageEvent<ClusterExperiment>) => {
+      resolve(event.data);
+      worker.terminate();
+    });
+    worker.addEventListener('error', (event) => {
+      reject(event.error ?? new Error('timing worker failed'));
+      worker.terminate();
+    });
+    const request: TimingWorkerRequest = { implementation: kind, repetitions: CLUSTER_REPETITIONS };
+    worker.postMessage(request);
+  });
+}
+
 async function runTiming(kind: TimingKey): Promise<void> {
-  // Disable both timing buttons: concurrent runs would contend for the CPU and
-  // corrupt each other's measurements.
   vulnerableButton.disabled = true;
   constantButton.disabled = true;
-  timingResults.innerHTML = `<p>Measuring ${kind} decoding timings…</p>`;
+  timingResults.innerHTML = `<p>Running ${CLUSTER_REPETITIONS.toLocaleString()} ${kind} divides in a worker…</p>`;
   await nextFrame();
   try {
-    timingState[kind] = await timingExperiment(kind, 4, (pct) => {
-      timingResults.innerHTML = `<p>Measuring ${kind} decoding timings… ${formatNumber(pct, 0)}%</p>`;
-    });
-    drawTimingOverlay();
+    timingState[kind] = await runClusterInWorker(kind);
+    // Show the just-run experiment; if both exist, prefer the vulnerable one so
+    // the separated clusters remain visible.
+    drawClusterHistogram(timingState.vulnerable ?? timingState[kind]);
     renderTimingReport();
   } finally {
     vulnerableButton.disabled = false;
@@ -900,10 +1149,16 @@ constantButton.addEventListener('click', () => {
   void runTiming('constant-time');
 });
 
-function drawKeccakGrid(normalLanes: bigint[], faultedLanes: bigint[]): void {
+function drawKeccakGrid(
+  normalLanes: bigint[],
+  faultedLanes: bigint[],
+  laneChanged: boolean[],
+): void {
   const ctx = clearPlot(keccakCanvas);
   const cell = 44;
-  const drawOne = (offsetX: number, lanes: bigint[], title: string, faulted: boolean) => {
+  // `highlightChanged` colors a lane red only when it TRULY differs from its
+  // counterpart in the other run — a real diff, not a hardcoded column.
+  const drawOne = (offsetX: number, lanes: bigint[], title: string, highlightChanged: boolean) => {
     ctx.fillStyle = '#d7ffe5';
     ctx.font = '14px sans-serif';
     ctx.fillText(title, offsetX, 20);
@@ -913,31 +1168,45 @@ function drawKeccakGrid(normalLanes: bigint[], faultedLanes: bigint[]): void {
         const index = row * 5 + col;
         const lane = lanes[index] ?? 0n;
         const intensity = Number(lane & 255n) / 255;
-        const hue = faulted && col < 2 ? 'rgba(255, 51, 102,' : 'rgba(0, 212, 255,';
+        const changed = laneChanged[index] === true;
+        const hue = highlightChanged && changed ? 'rgba(255, 51, 102,' : 'rgba(0, 212, 255,';
         ctx.fillStyle = `${hue}${0.25 + intensity * 0.6})`;
         ctx.fillRect(offsetX + col * cell, 32 + row * cell, cell - 4, cell - 4);
       }
     }
   };
 
-  drawOne(30, normalLanes, 'Normal absorb', false);
-  drawOne(320, faultedLanes, 'Faulted absorb', true);
+  drawOne(30, normalLanes, 'Honest absorb (random κ)', false);
+  drawOne(320, faultedLanes, 'Faulted absorb (κ = 0)', true);
 }
 
 must<HTMLButtonElement>('#run-keccak-btn').addEventListener('click', async () => {
-  keccakResults.innerHTML = '<p>Faulting KECCAK absorb loop…</p>';
+  keccakResults.innerHTML = '<p>Aborting the nonce-expansion loop…</p>';
   const result = await simulateFaultyKeccakAttack();
-  drawKeccakGrid(result.normalLanes, result.faultedLanes);
+  drawKeccakGrid(result.normalLanes, result.faultedLanes, result.laneChanged);
+  const changedCount = result.laneChanged.filter(Boolean).length;
+  // Does the attacker's PUBLIC-only guess of y match reality? Only in the faulted run.
+  const normalGuessMatches = result.predictedNormalY.every(
+    (value, index) => value === result.normalY[index],
+  );
   keccakResults.innerHTML = `
-    <p><strong>Normal input:</strong> ${result.normalInput}</p>
-    <p><strong>Faulted input:</strong> ${result.faultedInput}</p>
-    <p><strong>ρ′ normal:</strong> ${result.normalRho.slice(0, 16)}…</p>
-    <p><strong>ρ′ faulted:</strong> ${result.faultedRho.slice(0, 16)}…</p>
-    <p><strong>Recovered s₁[0..7]:</strong> [${Array.from(result.recovered).join(', ')}]</p>
-    <p><strong>Candidate search:</strong> tested ${result.candidateCount} candidates → ${result.success ? 'match found ✓' : 'no match'}</p>
+    <p><strong>Honest derivation:</strong> ${result.normalInput}</p>
+    <p><strong>Faulted derivation:</strong> ${result.faultedInput}</p>
+    <p><strong>Lanes actually changed by the fault:</strong> ${changedCount} of 25 (highlighted red on the right).</p>
+    <hr />
+    <p><strong>The mask, honest run:</strong> the attacker's best public guess of y (κ=0) matches the
+      real nonce? <strong>${normalGuessMatches ? 'yes' : 'no'}</strong> — the fresh random κ keeps y hidden,
+      so z = y + c·s₁ stays blinded and s₁ is safe.</p>
+    <p><strong>The mask, faulted run:</strong> attacker recomputes y from public data only (κ=0)
+      and it matches the real faulted nonce? <strong>${result.maskingCollapsed ? 'yes' : 'no'}</strong>.
+      With y now known, subtract it: s₁ = (z − y) / (17·c).</p>
+    <p><strong>Recovered s₁[0..7]:</strong> [${Array.from(result.recovered).join(', ')}]
+      &nbsp;vs actual [${Array.from(result.secret).join(', ')}] → ${result.success ? 'exact match ✓ key recovered' : 'no match'}.</p>
+    <p class="small-text"><strong>Why it worked:</strong> nothing broke SHAKE or the lattice math — the fault
+      only removed the randomness that made y unpredictable. Predictable nonce ⇒ collapsed blinding ⇒ linear solve.</p>
   `;
 });
 
 void generateTraces();
-drawTimingOverlay();
+drawClusterHistogram(undefined);
 renderRejectionLogs();

@@ -4,6 +4,7 @@ import {
   N,
   barrettReduce,
   correlationPowerAnalysis,
+  cpaCorrelationGrowth,
   hammingWeight,
   montgomeryReduce,
   nttButterfly,
@@ -103,5 +104,24 @@ describe('CPA attack (Attack 1)', () => {
     expect(() =>
       correlationPowerAnalysis([new Float64Array(3)], [1, 2], 1),
     ).toThrow();
+  });
+
+  it('correlation of the true key ends above the wrong-guess noise floor', async () => {
+    const secret = 1234;
+    const base = 567;
+    const count = 200;
+    const ciphertexts = Array.from({ length: count }, (_, i) => (base + i * 37) % Q);
+    const traces: Float64Array[] = [];
+    for (const ct of ciphertexts) {
+      traces.push(await simulatePowerTrace(secret, ct, 0.5));
+    }
+
+    const growth = cpaCorrelationGrowth(traces, ciphertexts, secret, 1, 10);
+    expect(growth.counts.length).toBe(10);
+    expect(growth.trueScores).toHaveLength(10);
+    expect(growth.noiseFloor).toHaveLength(10);
+    // By the final checkpoint the true key wins over the best wrong hypothesis.
+    const last = growth.counts.length - 1;
+    expect(growth.trueScores[last]!).toBeGreaterThan(growth.noiseFloor[last]!);
   });
 });

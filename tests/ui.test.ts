@@ -149,6 +149,10 @@ describe('Attack 1 — CPA button recovers the key into the panel', () => {
     const c = drawCalls('#cpa-canvas');
     expect(c.lineTo ?? 0).toBeGreaterThan(0);
     expect(c.stroke ?? 0).toBeGreaterThan(0);
+    // The "why this works" growth strip was rendered too (two rising lines).
+    const g = drawCalls('#cpa-growth-canvas');
+    expect(g.lineTo ?? 0).toBeGreaterThan(0);
+    expect(g.stroke ?? 0).toBeGreaterThan(0);
   }, 30000);
 });
 
@@ -174,14 +178,21 @@ describe('Attack 2 — signing + recovery panels', () => {
   }, 60000);
 });
 
-describe('Attack 3 — timing buttons update the report', () => {
-  it('running the constant-time experiment fills the panel and redraws the chart', async () => {
-    const before = drawCalls('#timing-canvas').lineTo ?? 0;
+describe('Attack 3 — divide-cycle clusters update the report', () => {
+  it('running the vulnerable model fills the panel and draws the cluster histogram', async () => {
+    const before = drawCalls('#timing-canvas').fillRect ?? 0;
+    $<HTMLButtonElement>('#run-vulnerable-btn').click();
+    await waitFor(() => /Vulnerable divide/.test(text('#timing-results')), 30000);
+    // The report describes the two secret classes in divide cycles.
+    expect(text('#timing-results')).toMatch(/cycles/);
+    // The histogram bars were rendered (fillRect per non-empty bin).
+    expect(drawCalls('#timing-canvas').fillRect ?? 0).toBeGreaterThan(before);
+  }, 30000);
+
+  it('the constant-time model collapses the clusters (near-zero separation)', async () => {
     $<HTMLButtonElement>('#run-constant-btn').click();
-    await waitFor(() => /Constant-time/.test(text('#timing-results')), 30000);
-    expect(text('#timing-results')).toMatch(/gap =/);
-    // The timing overlay was re-rendered with the measured series.
-    expect(drawCalls('#timing-canvas').lineTo ?? 0).toBeGreaterThan(before);
+    await waitFor(() => /Constant-time divide/.test(text('#timing-results')), 30000);
+    expect(text('#timing-results')).toMatch(/one hump|no leak/);
   }, 30000);
 });
 
@@ -189,7 +200,7 @@ describe('Attack 4 — KECCAK button reports a recovery', () => {
   it('running the simulation recovers s1 into the panel and draws both sponge states', async () => {
     $<HTMLButtonElement>('#run-keccak-btn').click();
     await waitFor(() => /Recovered s/.test(text('#keccak-results')));
-    expect(text('#keccak-results')).toContain('match found');
+    expect(text('#keccak-results')).toContain('key recovered');
     // 5×5 lane grid for both runs (fillRect) plus the two titles (fillText).
     const c = drawCalls('#keccak-canvas');
     expect(c.fillRect ?? 0).toBeGreaterThan(40);
