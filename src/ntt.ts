@@ -168,6 +168,59 @@ export function nttInverse(poly: Int32Array): Int32Array {
   return arr;
 }
 
+/** One butterfly's worth of the leakage sequence, tagged so the UI can render a
+ * card per stage and map trace sample i → stage floor(i/3), intermediate i%3. */
+export type LeakageStage = {
+  zeta: number;
+  wB: number;
+  plus: number;
+  minus: number;
+  /** Hamming weights of [wB, plus, minus] — the exact numbers the trace leaks. */
+  weights: [number, number, number];
+};
+
+/**
+ * The per-stage leakage breakdown behind simulatePowerTrace / hammingWeightCurve.
+ * Stage s contributes samples 3s, 3s+1, 3s+2 to the trace (w·b, a+wb, a−wb), so
+ * the UI can highlight the exact butterfly card a hovered sample came from.
+ */
+export function leakageStages(secretCoeff: number, cipherCoeff: number): LeakageStage[] {
+  const state = new Int32Array([
+    modQ(secretCoeff),
+    modQ(cipherCoeff),
+    modQ(secretCoeff + cipherCoeff),
+    modQ(secretCoeff + 2 * cipherCoeff),
+    modQ(2 * secretCoeff + cipherCoeff),
+    modQ(3 * secretCoeff + cipherCoeff),
+    modQ(secretCoeff + 3 * cipherCoeff),
+    modQ(2 * secretCoeff + 3 * cipherCoeff),
+  ]);
+  const stageZetas = [17, 3312, 2761, 568, 583, 2746, 2649, 680];
+  const stages: LeakageStage[] = [];
+
+  for (let len = 4; len >= 1; len >>= 1) {
+    for (let start = 0; start < state.length; start += len * 2) {
+      for (let j = 0; j < len; j += 1) {
+        const idx = start + j;
+        const zeta = stageZetas[(idx + len + j) % stageZetas.length] ?? 17;
+        const result = nttButterfly(state[idx] ?? 0, state[idx + len] ?? 0, zeta);
+        state[idx] = result.a_out;
+        state[idx + len] = result.b_out;
+        const [wB, plus, minus] = result.intermediates as [number, number, number];
+        stages.push({
+          zeta,
+          wB,
+          plus,
+          minus,
+          weights: [hammingWeight(wB), hammingWeight(plus), hammingWeight(minus)],
+        });
+      }
+    }
+  }
+
+  return stages;
+}
+
 function leakageSequence(secretCoeff: number, cipherCoeff: number): number[] {
   const state = new Int32Array([
     modQ(secretCoeff),
@@ -197,6 +250,24 @@ function leakageSequence(secretCoeff: number, cipherCoeff: number): number[] {
   }
 
   return traceIntermediates;
+}
+
+/**
+ * The noise-free leakage the chip WOULD draw for this (secret, cipher) pair:
+ * exactly hammingWeight(intermediate)·0.1 at every sample, with no Gaussian
+ * noise added. This is the "true" signal the power trace wiggles around — the
+ * quantity a CPA attack is trying to correlate against. The UI overlays this
+ * curve under the noisy trace so "power = Hamming weight + noise" is *seen*.
+ *
+ * Same leakage model and scaling as simulatePowerTrace, minus randomNormal.
+ */
+export function hammingWeightCurve(secretCoeff: number, cipherCoeff: number): Float64Array {
+  const intermediates = leakageSequence(secretCoeff, cipherCoeff);
+  const curve = new Float64Array(intermediates.length);
+  for (let i = 0; i < intermediates.length; i += 1) {
+    curve[i] = hammingWeight(intermediates[i] ?? 0) * 0.1;
+  }
+  return curve;
 }
 
 /**

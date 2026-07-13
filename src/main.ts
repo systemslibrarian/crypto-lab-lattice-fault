@@ -10,8 +10,8 @@ import {
   Q,
   correlationPowerAnalysis,
   cpaCorrelationGrowth,
-  hammingWeight,
-  nttButterfly,
+  hammingWeightCurve,
+  leakageStages,
   simulatePowerTrace,
 } from './ntt';
 import { randomIntInclusive } from './random';
@@ -67,6 +67,79 @@ app.innerHTML = `
       </ol>
     </nav>
 
+    <details class="lattice-primer panel" id="lattice-primer" open>
+      <summary>
+        <span class="lp-kicker">START HERE · 60-SECOND ON-RAMP</span>
+        <span class="lp-title">Zero to lattice: what is being attacked?</span>
+        <span class="lp-hint">New to post-quantum crypto? Read this first. Already fluent? Collapse it.</span>
+      </summary>
+      <div class="lp-body">
+        <div class="lp-prose">
+          <p>
+            A <strong>lattice</strong> is a grid of points you get by adding up a fixed set of vectors
+            with whole-number multiples — like every corner you can reach on graph paper using a couple
+            of "step" arrows. Lattice cryptography hides the secret key as a <em>tiny error</em> added to a
+            point on such a grid. Recovering it means finding the nearest grid point to a slightly-off
+            location, which is believed hard even for a quantum computer. That is the <strong>math</strong>
+            promise, and it is <em>not</em> what these four exhibits break.
+          </p>
+          <p>
+            In practice ML-KEM and ML-DSA don't store the key as raw grid vectors — they store
+            <strong>polynomials</strong> (256 coefficients mod q = 3329). Multiplying two polynomials the
+            slow way is 256×256 work. The <strong>NTT</strong> (Number-Theoretic Transform) is a trick that
+            first evaluates each polynomial at 256 special points; in that "NTT form" a product is just
+            <strong>point-by-point multiplication</strong> — 256 cheap multiplies instead of 65 536.
+            The secret key flows through those multiplies, one coefficient at a time — and <em>that</em> is
+            the arithmetic Attack 1 watches leak through the chip's power draw.
+          </p>
+          <p class="lp-take">
+            <strong>Hold onto this:</strong> the secret lives in a polynomial coefficient, the NTT touches it
+            with a hardware multiply, and a multiply moves bits — which a probe can see. The math stays
+            safe; the <em>chip doing the math</em> is what leaks.
+          </p>
+        </div>
+        <figure class="lp-figure">
+          <svg viewBox="0 0 300 210" role="img" aria-label="Diagram: multiplying two polynomials becomes point-by-point multiplication once both are in NTT form; the secret coefficient s-hat-0 times c-hat-0 is one such multiply.">
+            <defs>
+              <marker id="lp-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <text x="8" y="20" class="lp-svg-h">coefficients (mod q=3329)</text>
+            <text x="8" y="42" class="lp-svg-t">s = [ s₀ s₁ s₂ … s₂₅₅ ]</text>
+            <text x="8" y="60" class="lp-svg-t">c = [ c₀ c₁ c₂ … c₂₅₅ ]</text>
+            <line x1="150" y1="70" x2="150" y2="92" stroke="currentColor" stroke-width="1.5" marker-end="url(#lp-arrow)"/>
+            <text x="160" y="86" class="lp-svg-s">NTT: evaluate at 256 points</text>
+            <text x="8" y="112" class="lp-svg-h">NTT form (ŝ, ĉ)</text>
+            <text x="8" y="134" class="lp-svg-t">ŝ = [ ŝ₀ ŝ₁ ŝ₂ … ]</text>
+            <text x="8" y="152" class="lp-svg-t">ĉ = [ ĉ₀ ĉ₁ ĉ₂ … ]</text>
+            <rect x="6" y="164" width="288" height="40" rx="8" class="lp-svg-box"/>
+            <text x="150" y="181" class="lp-svg-p" text-anchor="middle">product = point-by-point:</text>
+            <text x="150" y="197" class="lp-svg-hot" text-anchor="middle">ŝ₀·ĉ₀ , ŝ₁·ĉ₁ , … , ŝ₂₅₅·ĉ₂₅₅</text>
+          </svg>
+          <figcaption>The secret coefficient <code>ŝ₀</code> meets the ciphertext at one multiply <code>ŝ₀·ĉ₀</code>. Attack 1 recovers that <code>ŝ₀</code> from the power the multiply draws.</figcaption>
+        </figure>
+      </div>
+    </details>
+
+    <section class="warmup panel" role="note" aria-label="The simplest possible leak">
+      <h2 class="warmup-title">Warm-up: the simplest possible leak (30 seconds)</h2>
+      <p>
+        Before any NTTs, here is the whole idea in one line. Imagine a chip that checks a secret PIN digit
+        by digit and <em>stops at the first wrong digit</em>:
+      </p>
+      <pre class="warmup-code" tabindex="0" role="region" aria-label="Pseudocode: a PIN check that returns early on the first mismatch, leaking through time"><code>for i in 0..len:
+    if guess[i] != secret[i]:
+        return WRONG   <span class="warmup-note"># returns sooner when the guess is wrong earlier</span></code></pre>
+      <p>
+        Nobody read the secret — yet a <strong>stopwatch</strong> does: a guess wrong at digit 0 returns
+        faster than one wrong at digit 3. The output ("WRONG") is identical; the <em>time</em> is not. That
+        gap between "what the algorithm returns" and "what the hardware reveals" is the entire subject of
+        this lab. The four attacks below are just richer versions of this — power instead of time, a glitch
+        instead of a stopwatch — against real ML-KEM / ML-DSA code.
+      </p>
+    </section>
+
     <section class="exhibit panel" id="attack-1">
       <div class="exhibit-head">
         <div>
@@ -112,6 +185,7 @@ app.innerHTML = `
           <label>Number of traces: <span id="trace-count-value">100</span>
             <input id="trace-count-slider" type="range" min="10" max="500" step="10" value="100" />
           </label>
+          <p class="small-text">Drag <strong>noise σ</strong> and let go: the traces redraw live so you watch the amber Hamming-weight signal drown as σ rises — then re-run CPA to see the true-key spike sink toward the floor.</p>
           <div class="button-row">
             <button id="generate-traces-btn">Generate Traces</button>
             <button id="run-cpa-btn">Run CPA Attack</button>
@@ -128,8 +202,10 @@ app.innerHTML = `
       <figcaption class="chart-legend">
         <span class="axes">X: NTT sample index &nbsp;·&nbsp; Y: simulated power (Hamming weight + noise)</span>
         <span class="swatch" style="--c:#00ff66">first 5 power traces — one per ciphertext</span>
+        <span class="swatch swatch-dash" style="--c:#ffaa00">noise-free Hamming-weight signal (power = this + noise)</span>
+        <span class="swatch" style="--c:#ff3366">hovered sample &rarr; its butterfly card</span>
       </figcaption>
-      <div id="trace-hover" class="hint-line">Hover, tap, or focus the trace and use ← → keys to read each sample.</div>
+      <div id="trace-hover" class="hint-line">Hover, tap, or focus the trace and use &larr; &rarr; keys: each sample lights up the butterfly card whose Hamming weight produced it, and the amber dashed line is the noise-free signal the noisy traces wiggle around.</div>
       <div id="butterfly-grid" class="butterfly-grid"></div>
       <canvas id="cpa-canvas" width="600" height="220" role="img" aria-label="CPA histogram for all ML-KEM key hypotheses"></canvas>
       <figcaption class="chart-legend">
@@ -546,41 +622,79 @@ function valueRange(seriesList: number[][]): { min: number; max: number } {
   return { min, max };
 }
 
-function drawLineSeries(
+/**
+ * Draw the Attack-1 power trace: the first few noisy traces (green), the
+ * noise-free Hamming-weight curve they wiggle around (amber), and — when a
+ * sample is focused — a vertical cursor plus a dot on the HW curve. This is the
+ * visible half of the "power tracks Hamming weight" link; the butterfly card
+ * highlight is the other half, driven by the same cursorSample.
+ */
+function drawTracePlot(
   canvas: HTMLCanvasElement,
-  seriesList: number[][],
-  colors: string[],
-  highlights: number[] = [],
-  dashes: number[][] = [],
+  traces: number[][],
+  hwCurve: number[],
+  cursorSample: number | null,
 ): void {
+  const allSeries = hwCurve.length ? traces.concat([hwCurve]) : traces;
   const ctx = clearPlot(canvas);
-  const { min, max } = valueRange(seriesList);
+  const { min, max } = valueRange(allSeries.length ? allSeries : [[0, 1]]);
   const pad = 18;
   const usableHeight = canvas.height - pad * 2;
   const usableWidth = canvas.width - pad * 2;
+  const greens = ['#00ff66', '#24d97a', '#47c98a', '#8be3a8', '#d0ffde'];
 
-  seriesList.forEach((series, seriesIndex) => {
+  const xAt = (index: number, len: number): number =>
+    pad + (index / Math.max(len - 1, 1)) * usableWidth;
+  const yAt = (value: number): number =>
+    pad + usableHeight - ((value - min) / Math.max(max - min, 1e-9)) * usableHeight;
+
+  // Noisy traces first, thin.
+  traces.forEach((series, seriesIndex) => {
     ctx.beginPath();
-    ctx.lineWidth = highlights.includes(seriesIndex) ? 2.4 : 1.35;
-    ctx.strokeStyle = colors[seriesIndex] ?? '#00ff66';
-    // Distinct dash pattern per series so the lines stay distinguishable
-    // without relying on color alone (WCAG 1.4.1).
-    ctx.setLineDash(dashes[seriesIndex] ?? []);
-
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = greens[seriesIndex] ?? '#00ff66';
     series.forEach((value, index) => {
-      const x = pad + (index / Math.max(series.length - 1, 1)) * usableWidth;
-      const y = pad + usableHeight - ((value - min) / Math.max(max - min, 1e-9)) * usableHeight;
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
+      const x = xAt(index, series.length);
+      const y = yAt(value);
+      index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
-
     ctx.stroke();
   });
 
-  ctx.setLineDash([]);
+  // Noise-free Hamming-weight curve on top, bright + dashed so it reads as "the
+  // real signal under the noise".
+  if (hwCurve.length) {
+    ctx.beginPath();
+    ctx.lineWidth = 2.6;
+    ctx.strokeStyle = '#ffaa00';
+    ctx.setLineDash([6, 4]);
+    hwCurve.forEach((value, index) => {
+      const x = xAt(index, hwCurve.length);
+      const y = yAt(value);
+      index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Focused-sample cursor: a vertical line + a dot on the HW curve, the visible
+  // end of the connector to the butterfly card below.
+  if (cursorSample !== null && hwCurve.length) {
+    const len = hwCurve.length;
+    const idx = clamp(cursorSample, 0, len - 1);
+    const x = xAt(idx, len);
+    ctx.strokeStyle = 'rgba(255, 51, 102, 0.9)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, pad - 8);
+    ctx.lineTo(x, canvas.height - pad + 8);
+    ctx.stroke();
+    const dotY = yAt(hwCurve[idx] ?? 0);
+    ctx.fillStyle = '#ff3366';
+    ctx.beginPath();
+    ctx.arc(x, dotY, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawHistogram(
@@ -672,13 +786,39 @@ function drawCorrelationPlot(canvas: HTMLCanvasElement, scores: Float64Array, se
 
   ctx.stroke();
 
+  // The true-key spike, now called out directly so a newcomer sees WHERE to look
+  // and WHY it wins: a full-height line, a dot at its peak, and a label naming
+  // the recovered coefficient.
   const spikeX = pad + (secretKey / Math.max(values.length - 1, 1)) * (canvas.width - pad * 2);
+  const spikeVal = values[secretKey] ?? 0;
+  const spikeY = canvas.height - pad - (spikeVal / maxValue) * (canvas.height - pad * 2);
+  const winner = values.every((v, k) => k === secretKey || v <= spikeVal);
+
   ctx.strokeStyle = '#ff3366';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(spikeX, 8);
   ctx.lineTo(spikeX, canvas.height - 8);
   ctx.stroke();
+
+  ctx.fillStyle = '#ff3366';
+  ctx.beginPath();
+  ctx.arc(spikeX, spikeY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Callout label near the peak, flipped to whichever side has room.
+  const label = winner ? `sk[0]=${secretKey} — the winning spike` : `sk[0]=${secretKey} — true key (not yet leading)`;
+  ctx.font = '700 12px Inter, "Segoe UI", sans-serif';
+  // measureText may be absent/stubbed (e.g. the jsdom recording context); fall
+  // back to an estimate so the callout still positions without throwing.
+  const textW = ctx.measureText(label)?.width ?? label.length * 6.5;
+  const leftSide = spikeX + 10 + textW > canvas.width - pad;
+  const labelX = leftSide ? spikeX - 10 - textW : spikeX + 10;
+  const labelY = clamp(spikeY - 8, 20, canvas.height - 12);
+  ctx.fillStyle = 'rgba(4, 16, 8, 0.85)';
+  ctx.fillRect(labelX - 4, labelY - 13, textW + 8, 18);
+  ctx.fillStyle = '#ffd0da';
+  ctx.fillText(label, labelX, labelY);
 }
 
 function drawGrowthPlot(
@@ -774,6 +914,9 @@ const traceState = {
   count: 100,
   ciphertexts: [] as number[],
   traces: [] as Float64Array[],
+  // The noise-free Hamming-weight signal the first trace wiggles around, so the
+  // "power = HW + noise" claim is drawn, not just asserted.
+  hwCurve: new Float64Array(0) as Float64Array,
 };
 
 let rejectionSecret = new Int32Array(Array.from({ length: 256 }, () => randomIntInclusive(-ML_DSA_PARAMS.eta, ML_DSA_PARAMS.eta)));
@@ -794,25 +937,34 @@ function renderSliderValues(): void {
 });
 renderSliderValues();
 
-function renderButterflies(secret: number, cipher: number): void {
-  let a = secret;
-  let b = cipher;
-  const zetas = [17, 3312, 2761, 568, 583, 2746, 2649, 680];
+// Live feedback: releasing the noise (or setup) slider regenerates the traces so
+// the learner watches the amber Hamming-weight signal disappear into the noise as
+// σ rises — the SNR trade-off felt by dragging, not by re-clicking "Generate".
+// Fires on `change` (pointer release), not every `input` tick, to stay cheap.
+[skSlider, ctSlider, noiseSlider, traceCountSlider].forEach((input) => {
+  input.addEventListener('change', () => {
+    void generateTraces();
+  });
+});
 
-  butterflyGrid.innerHTML = zetas.map((zeta, index) => {
-    const result = nttButterfly(a, b, zeta);
-    const weights = result.intermediates.map((value) => hammingWeight(value));
-    a = result.a_out;
-    b = result.b_out;
-    const hot = Math.max(...weights) >= 8 ? 'hot' : '';
+function renderButterflies(secret: number, cipher: number): void {
+  // Render straight from the SAME leakage stages that generate the power trace,
+  // so butterfly card `s` owns trace samples 3s, 3s+1, 3s+2 exactly. Each <p>
+  // carries data-sample so a hovered trace point can light up its source line.
+  const stages = leakageStages(secret, cipher);
+
+  butterflyGrid.innerHTML = stages.map((stage, index) => {
+    const [wHW, plusHW, minusHW] = stage.weights;
+    const hot = Math.max(wHW, plusHW, minusHW) >= 8 ? 'hot' : '';
+    const base = index * 3;
 
     return `
-      <article class="butterfly-card ${hot}">
-        <h4>Stage ${index + 1}</h4>
-        <p>zeta = ${zeta}</p>
-        <p>w·b = ${result.intermediates[0]} (HW ${weights[0]})</p>
-        <p>a + wb = ${result.intermediates[1]} (HW ${weights[1]})</p>
-        <p>a − wb = ${result.intermediates[2]} (HW ${weights[2]})</p>
+      <article class="butterfly-card ${hot}" data-stage="${index}">
+        <h4>Stage ${index + 1} <span class="bf-samples">samples ${base}–${base + 2}</span></h4>
+        <p>zeta = ${stage.zeta}</p>
+        <p data-sample="${base}">w·b = ${stage.wB} (HW ${wHW})</p>
+        <p data-sample="${base + 1}">a + wb = ${stage.plus} (HW ${plusHW})</p>
+        <p data-sample="${base + 2}">a − wb = ${stage.minus} (HW ${minusHW})</p>
       </article>
     `;
   }).join('');
@@ -833,15 +985,45 @@ async function generateTraces(): Promise<void> {
     traceState.traces.push(await simulatePowerTrace(traceState.secret, ct, traceState.noise));
   }
 
-  const visible = traceState.traces.slice(0, 5).map((trace) => Array.from(trace));
-  drawLineSeries(traceCanvas, visible, ['#00ff66', '#24d97a', '#47c98a', '#8be3a8', '#d0ffde']);
-  renderButterflies(traceState.secret, traceState.ciphertexts[0] ?? traceState.baseCipher);
+  // The butterfly cards and the noise-free curve must describe the SAME
+  // (secret, cipher) pair the FIRST drawn trace uses, so the hover linkage lines
+  // up sample-for-sample.
+  const firstCipher = traceState.ciphertexts[0] ?? traceState.baseCipher;
+  traceState.hwCurve = hammingWeightCurve(traceState.secret, firstCipher);
+
+  redrawTrace(null);
+  renderButterflies(traceState.secret, firstCipher);
   cpaResults.innerHTML = '<p>Traces generated. Ready to test all 3,329 hypotheses.</p>';
 }
 
 // Power-trace readout, reachable by mouse, touch, AND keyboard so the exhibit
 // meets WCAG 2.1.1 and works on mobile. `traceCursor` is the focused sample.
 let traceCursor = 0;
+
+/** Redraw the trace canvas, optionally with a cursor marker at `cursorSample`. */
+function redrawTrace(cursorSample: number | null): void {
+  const visible = traceState.traces.slice(0, 5).map((trace) => Array.from(trace));
+  drawTracePlot(traceCanvas, visible, Array.from(traceState.hwCurve), cursorSample);
+}
+
+/** Light up the butterfly card (and the exact intermediate line) a sample came
+ * from, so the hovered power point is visibly tied to the Hamming weight that
+ * produced it. Clears when `sampleIndex` is null. */
+function highlightButterflyForSample(sampleIndex: number | null): void {
+  butterflyGrid.querySelectorAll('.butterfly-card').forEach((card) => {
+    card.classList.remove('linked');
+    card.querySelectorAll('p[data-sample]').forEach((p) => p.classList.remove('linked-row'));
+  });
+  if (sampleIndex === null) {
+    return;
+  }
+  const stage = Math.floor(sampleIndex / 3);
+  const card = butterflyGrid.querySelector<HTMLElement>(`.butterfly-card[data-stage="${stage}"]`);
+  if (card) {
+    card.classList.add('linked');
+    card.querySelector(`p[data-sample="${sampleIndex}"]`)?.classList.add('linked-row');
+  }
+}
 
 function showTraceSample(sampleIndex: number): void {
   const trace = traceState.traces[0];
@@ -850,7 +1032,16 @@ function showTraceSample(sampleIndex: number): void {
   }
   traceCursor = clamp(sampleIndex, 0, trace.length - 1);
   const power = trace[traceCursor] ?? 0;
-  traceHover.textContent = `Sample ${traceCursor} of ${trace.length - 1}: measured power ${formatNumber(power, 3)} — see the butterfly cards below for the exact Hamming weights.`;
+  const clean = traceState.hwCurve[traceCursor] ?? 0;
+  const noise = power - clean;
+  const stage = Math.floor(traceCursor / 3);
+  const part = ['w·b', 'a + wb', 'a − wb'][traceCursor % 3] ?? '';
+  traceHover.textContent =
+    `Sample ${traceCursor} of ${trace.length - 1} — from butterfly stage ${stage + 1} (${part}): ` +
+    `power ${formatNumber(power, 3)} = Hamming-weight signal ${formatNumber(clean, 3)} ` +
+    `${noise >= 0 ? '+' : '−'} noise ${formatNumber(Math.abs(noise), 3)}. Highlighted below.`;
+  redrawTrace(traceCursor);
+  highlightButterflyForSample(traceCursor);
 }
 
 function sampleFromClientX(clientX: number): number {
@@ -874,6 +1065,11 @@ traceCanvas.addEventListener('touchmove', (event) => {
   event.preventDefault(); // keep the readout from scrolling the page
   showTraceSample(sampleFromClientX(touch.clientX));
 }, { passive: false });
+
+traceCanvas.addEventListener('mouseleave', () => {
+  redrawTrace(null);
+  highlightButterflyForSample(null);
+});
 
 traceCanvas.addEventListener('keydown', (event) => {
   const trace = traceState.traces[0];
@@ -1196,6 +1392,16 @@ must<HTMLButtonElement>('#run-keccak-btn').addEventListener('click', async () =>
   const normalGuessMatches = result.predictedNormalY.every(
     (value, index) => value === result.normalY[index],
   );
+  // Walk the actual arithmetic for coefficient 0 so the "linear solve" is a
+  // visible cancellation, not a formula. Every number here is from THIS run.
+  const z0 = result.z[0] ?? 0;
+  const yReal0 = result.faultedY[0] ?? 0;
+  const yGuess0 = result.predictedFaultedY[0] ?? 0;
+  const c0 = result.challenge[0] ?? 1;
+  const s0 = result.secret[0] ?? 0;
+  const rec0 = result.recovered[0] ?? 0;
+  const numer0 = z0 - yGuess0;
+
   keccakResults.innerHTML = `
     <p><strong>Honest derivation:</strong> ${result.normalInput}</p>
     <p><strong>Faulted derivation:</strong> ${result.faultedInput}</p>
@@ -1207,6 +1413,19 @@ must<HTMLButtonElement>('#run-keccak-btn').addEventListener('click', async () =>
     <p><strong>The mask, faulted run:</strong> attacker recomputes y from public data only (κ=0)
       and it matches the real faulted nonce? <strong>${result.maskingCollapsed ? 'yes' : 'no'}</strong>.
       With y now known, subtract it: s₁ = (z − y) / (17·c).</p>
+
+    <div class="algebra-walk" role="region" aria-label="Step-by-step recovery of the first secret coefficient" tabindex="0">
+      <p class="algebra-title">Watch coefficient 0 fall out — real numbers from this run</p>
+      <ol class="algebra-steps">
+        <li>The device released <code>z[0] = ${z0}</code> (this is <code>y[0] + 17·c[0]·s₁[0]</code>, all public except s₁).</li>
+        <li>Attacker recomputes the nonce from public data (κ=0): <code>y[0] = ${yGuess0}</code>${yGuess0 === yReal0 ? ' — matches the real faulted nonce ✓' : ''}.</li>
+        <li>Subtract the now-known mask: <code>z[0] − y[0] = ${z0} − ${yGuess0} = ${numer0}</code>. The blinding is gone.</li>
+        <li>Divide by <code>17·c[0] = 17·${c0} = ${17 * c0}</code>: <code>${numer0} / ${17 * c0} = ${rec0}</code>.</li>
+        <li>Recovered <code>s₁[0] = ${rec0}</code> vs actual <code>${s0}</code> → ${rec0 === s0 ? '<strong>exact ✓</strong>' : 'mismatch'}.</li>
+      </ol>
+      <p class="small-text">The <code>17</code> is not magic: it is ζ, the primitive 256th root of unity mod q=3329 that the NTT multiplies by — the same constant you saw as the first zeta in Attack 1. Because <code>y</code> is known and everything else is public and linear, one subtraction and one division recover the secret; no search, no lattice reduction.</p>
+    </div>
+
     <p><strong>Recovered s₁[0..7]:</strong> [${Array.from(result.recovered).join(', ')}]
       &nbsp;vs actual [${Array.from(result.secret).join(', ')}] → ${result.success ? 'exact match ✓ key recovered' : 'no match'}.</p>
     <p class="small-text"><strong>Why it worked:</strong> nothing broke SHAKE or the lattice math — the fault
