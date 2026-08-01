@@ -2,7 +2,7 @@
 
 ## What It Is
 
-This browser demo explains physical implementation attacks against ML-KEM and ML-DSA, the post-quantum asymmetric primitives used for key encapsulation and digital signatures. It shows how power leakage, timing variation, rejection-sampling faults, and faulty KECCAK handling can expose secret-dependent behavior on hardware even when the underlying math remains secure. It opens with a collapsible **"Zero to lattice in 60 seconds"** on-ramp (what a lattice is, why the secret lives in a polynomial coefficient, and why the NTT turns a polynomial product into point-by-point multiplication) plus a 30-second "simplest possible leak" warm-up, so a newcomer has a mental model of the object under attack before the math starts. Each exhibit then opens with a plain-language primer for the load-bearing terms (NTT, butterfly, Hamming weight, side-channel) and an "attacker story", and the four attacks are laid out as an ordered tour (power → fault → timing → fault-on-hashing) with progressive disclosure so complexity layers instead of dumping. In Attack 1 the power trace is drawn with the noise-free Hamming-weight signal overlaid, and hovering a sample lights up the exact butterfly card whose Hamming weight produced it — so "power tracks Hamming weight" is shown, not just asserted. The demo is simulated and educational, and it does not claim a mathematical break of either standard.
+This browser demo explains physical implementation attacks against ML-KEM and ML-DSA, the post-quantum asymmetric primitives used for key encapsulation and digital signatures. It shows how power leakage, timing variation, rejection-sampling faults, and a loop-abort fault on nonce generation can expose secret-dependent behavior on hardware even when the underlying math remains secure. It opens with a collapsible **"Zero to lattice in 60 seconds"** on-ramp (what a lattice is, why the secret lives in a polynomial coefficient, and why the NTT turns a polynomial product into point-by-point multiplication) plus a 30-second "simplest possible leak" warm-up, so a newcomer has a mental model of the object under attack before the math starts. Each exhibit then opens with a plain-language primer for the load-bearing terms (NTT, butterfly, Hamming weight, side-channel) and an "attacker story", and the four attacks are laid out as an ordered tour (power → fault → timing → loop-abort fault) with progressive disclosure so complexity layers instead of dumping. In Attack 1 the power trace is drawn with the noise-free Hamming-weight signal overlaid, and hovering a sample lights up the exact butterfly card whose Hamming weight produced it — so "power tracks Hamming weight" is shown, not just asserted. The demo is simulated and educational, and it does not claim a mathematical break of either standard.
 
 ## When to Use It
 
@@ -15,14 +15,14 @@ This browser demo explains physical implementation attacks against ML-KEM and ML
 
 **[systemslibrarian.github.io/crypto-lab-lattice-fault](https://systemslibrarian.github.io/crypto-lab-lattice-fault/)**
 
-In the demo, you can generate simulated power traces, run the CPA exhibit, compare normal and faulted signing behavior, and launch the timing and KECCAK views. Controls include the secret key coefficient, ciphertext coefficient, noise level, number of traces, and action buttons for each exhibit.
+In the demo, you can generate simulated power traces, run the CPA exhibit, compare normal and faulted signing behavior, and drag the loop-abort point to watch the nonce collapse and the required lattice dimension fall with it. Controls include the secret key coefficient, ciphertext coefficient, noise level, number of traces, the ExpandMask abort point, and action buttons for each exhibit.
 
 ## What Can Go Wrong
 
 - **Single-trace power analysis on the NTT** can recover secrets from masked lattice encryption when the implementation is not hardened (Exhibit 1).
 - **Faults in rejection sampling** during ML-DSA signing can leak signing-key information (Exhibit 2).
 - **Secret-dependent division timing (KyberSlash)** leaks ML-KEM key bits on some targets: a single secret-dependent integer division runs for a data-dependent number of shift-subtract cycles, so the decode times cluster by the secret bit. Exhibit 3 runs the real restoring-division model in a Web Worker and plots the two cycle-count clusters (which the constant-time build collapses into one) rather than relying on Spectre-throttled browser timers.
-- **Loop-abort or faulty-KECCAK faults** can zero the per-signature nonce, making the mask predictable and collapsing the `y + c·s₁` blinding that hides the ML-DSA key (Exhibit 4). The exhibit diffs the honest vs. faulted sponge lanes and shows the attacker recomputing the zeroed nonce from public data only.
+- **A loop-abort fault on nonce generation** ends the per-coefficient `ExpandMask` loop early, so the nonce `y` keeps only a few non-zero coefficients (Exhibit 4). The attacker never learns `y`: because `c⁻¹z − s₁ ≡ c⁻¹y` is now a combination of only `m` ring elements, one faulty signature pins `s₁` inside a lattice of dimension ≈ `m`, and lattice reduction reads the key out. The exhibit runs a real LLL over the real ML-DSA-44 ring and discloses on screen which parts are executed and which are modelled. Note that this is *not* about the per-signature randomness `rnd`: `y` is expanded from `ρ″ = H(K ‖ rnd ‖ μ)` with the private seed `K`, which is why FIPS 204's deterministic variant (`rnd = 0³²`) is an approved and secure mode.
 - **Constant-time coding and masking are separate from mathematical security** — a FIPS-correct implementation can still leak physically without them.
 
 ## Real-World Usage
@@ -61,7 +61,7 @@ attack here. Each exhibit is a simplified, browser-friendly reconstruction of a 
 | 1 — NTT power analysis | Primas, Pessl & Mangard, *Single-Trace Side-Channel Attacks on Masked Lattice-Based Encryption*, CHES 2017 — [ePrint 2017/594](https://eprint.iacr.org/2017/594) |
 | 2 — Rejection-sampling fault | *Key Recovery of CRYSTALS-Dilithium via Side-Channel Attacks*, IACR TCHES 2025 — [ePrint 2025/214](https://eprint.iacr.org/2025/214) |
 | 3 — KyberSlash timing | Bernstein et al., *Exploiting secret-dependent division timings in Kyber*, 2024 — [kyberslash.cr.yp.to](https://kyberslash.cr.yp.to/) · [ePrint 2024/1049](https://eprint.iacr.org/2024/1049) |
-| 4 — Faulty KECCAK / zeroed nonce | Espitau, Fouque, Gérard & Tibouchi, *Loop-Abort Faults on Lattice-Based Fiat–Shamir and Hash-and-Sign Signatures*, SAC 2016 — [ePrint 2016/449](https://eprint.iacr.org/2016/449) |
+| 4 — Loop-abort fault on the nonce | Espitau, Fouque, Gérard & Tibouchi, *Loop-Abort Faults on Lattice-Based Fiat–Shamir and Hash-and-Sign Signatures*, SAC 2016 — [ePrint 2016/449](https://eprint.iacr.org/2016/449) |
 
 The numbers shown in-browser (recovered keys, recovery rates, timing gaps) are produced by the actual
 simulation code, which is exercised by the test suite in `tests/` on every CI run.
@@ -74,5 +74,7 @@ npm run build    # type-check (tsc) + production build
 No environment variables are required.
 
 ---
+
+*One of 170+ browser demos in the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
 
 *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*

@@ -42,7 +42,8 @@ const $ = <T extends Element>(selector: string): T => {
 const text = (selector: string): string => $(selector).textContent ?? '';
 
 beforeAll(async () => {
-  // Web Crypto with subtle (KECCAK exhibit needs digest); Node's webcrypto has both.
+  // Web Crypto: the exhibits draw randomness from getRandomValues and the CPA
+  // trace generator uses subtle.digest; Node's webcrypto has both.
   if (!globalThis.crypto?.subtle) {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
   }
@@ -196,16 +197,50 @@ describe('Attack 3 — divide-cycle clusters update the report', () => {
   }, 30000);
 });
 
-describe('Attack 4 — KECCAK button reports a recovery', () => {
-  it('running the simulation recovers s1 into the panel and draws both sponge states', async () => {
-    $<HTMLButtonElement>('#run-keccak-btn').click();
-    await waitFor(() => /Recovered s/.test(text('#keccak-results')));
-    expect(text('#keccak-results')).toContain('key recovered');
-    // 5×5 lane grid for both runs (fillRect) plus the two titles (fillText).
-    const c = drawCalls('#keccak-canvas');
-    expect(c.fillRect ?? 0).toBeGreaterThan(40);
-    expect(c.fillText ?? 0).toBeGreaterThan(0);
+describe('Attack 4 — loop-abort fault and the lattice recovery', () => {
+  it('draws the nonce strips and the dimension curve on load', () => {
+    // Two 256-cell strips → hundreds of fillRects; the curve strokes a polyline.
+    expect(drawCalls('#nonce-canvas').fillRect ?? 0).toBeGreaterThan(400);
+    expect(drawCalls('#dimension-canvas').lineTo ?? 0).toBeGreaterThan(50);
+  });
+
+  it('the abort slider updates the required-dimension readout', () => {
+    const slider = $<HTMLInputElement>('#abort-slider');
+    slider.value = '4';
+    slider.dispatchEvent(new Event('input'));
+    expect(text('#abort-value')).toBe('4');
+    expect(text('#abort-readout')).toMatch(/Embedding dimension required/);
+    expect(text('#abort-readout')).toMatch(/4 of 256/);
+  });
+
+  it('running the attack recovers s1 from a single faulty signature', async () => {
+    const slider = $<HTMLInputElement>('#abort-slider');
+    slider.value = '4';
+    slider.dispatchEvent(new Event('input'));
+    $<HTMLButtonElement>('#run-loopabort-btn').click();
+    await waitFor(() => /Recovered s/.test(text('#loopabort-results')), 60000);
+    const panel = text('#loopabort-results');
+    expect(panel).toContain('full key recovery');
+    expect(panel).toContain('256 of 256');
+    // The relation, not a nonce recomputation, is what the panel narrates.
+    expect(panel).toMatch(/c⁻¹z/);
+  }, 60000);
+
+  it('past the in-browser cap it says it is modelling, not executing', async () => {
+    const slider = $<HTMLInputElement>('#abort-slider');
+    slider.value = '200';
+    slider.dispatchEvent(new Event('input'));
+    $<HTMLButtonElement>('#run-loopabort-btn').click();
+    await waitFor(() => /Recovery not executed/.test(text('#loopabort-results')), 30000);
+    expect(text('#loopabort-results')).toMatch(/in-browser limit/);
   }, 30000);
+
+  it('never claims the nonce is recomputable from public data', () => {
+    const section = text('#attack-4');
+    expect(section).toMatch(/deterministic variant/);
+    expect(section).toMatch(/H\(K ‖ rnd ‖ μ\)/);
+    expect(section).not.toMatch(/recompute .{0,20}y .{0,20}from public data/i);
+  });
 });
 
 describe('theme toggle', () => {

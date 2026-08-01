@@ -1,5 +1,11 @@
 import './styles.css';
-import { simulateFaultyKeccakAttack } from './keccak';
+import {
+  EXECUTABLE_ABORT_LIMIT,
+  ML_DSA_44,
+  expandMaskPoly,
+  requiredEmbeddingDimension,
+  runLoopAbortAttack,
+} from './loopabort';
 import {
   ML_DSA_PARAMS,
   recoverFromFaultySignatures,
@@ -47,9 +53,11 @@ app.innerHTML = `
     </header>
 
     <section class="sim-warning" role="note">
-      ⚠ SIMULATED — every exhibit demonstrates the principle only. Real attacks require
-      physical access, specialized probes or glitchers, and significant expertise. ML-KEM
-      and ML-DSA are not mathematically broken; these are implementation attacks.
+      ⚠ SIMULATED — no probe, glitcher or target device is involved; the physical half of every
+      attack is stood up in software here, and real attacks require physical access, specialized
+      equipment and significant expertise. Where an exhibit performs genuine cryptographic
+      computation rather than a model of one, it says so on the exhibit. ML-KEM and ML-DSA are not
+      mathematically broken; these are implementation attacks.
     </section>
 
     <nav class="toc panel" aria-label="Tour of the four attacks">
@@ -63,7 +71,7 @@ app.innerHTML = `
         <li><a href="#attack-1"><span class="toc-num">1</span> <span class="toc-label">Power analysis</span> <span class="toc-what">read the chip's power draw during the NTT multiply</span></a></li>
         <li><a href="#attack-2"><span class="toc-num">2</span> <span class="toc-label">Fault injection</span> <span class="toc-what">glitch away the rejection check so it leaks the key</span></a></li>
         <li><a href="#attack-3"><span class="toc-num">3</span> <span class="toc-label">Timing (KyberSlash)</span> <span class="toc-what">a secret-dependent division runs for a different number of cycles</span></a></li>
-        <li><a href="#attack-4"><span class="toc-num">4</span> <span class="toc-label">Fault on hashing</span> <span class="toc-what">glitch KECCAK so the secret nonce becomes predictable</span></a></li>
+        <li><a href="#attack-4"><span class="toc-num">4</span> <span class="toc-label">Loop-abort fault</span> <span class="toc-what">cut the nonce-generation loop short so most of the nonce is zero</span></a></li>
       </ol>
     </nav>
 
@@ -312,6 +320,15 @@ app.innerHTML = `
         <button id="recover-btn">Run Key Recovery from 8,000 Faulty Signatures</button>
       </div>
       <div id="recovery-panel" class="result-box" aria-live="polite">Recovery panel idle.</div>
+      <p class="small-text honesty-note">
+        <strong>Model disclosure:</strong> this exhibit uses the real ML-DSA-44 rejection bound
+        (<code>γ₁ − β</code>, with <code>γ₁ = 2¹⁷</code> and <code>β = τ·η = 78</code> from FIPS 204
+        Table 1) and the real <code>y</code> range <code>[−γ₁+1, γ₁]</code>, but it forms
+        <code>c·s₁</code> <em>coefficient by coefficient</em> with a fixed scale factor rather than as a
+        product in <code>Z_q[x]/(x²⁵⁶+1)</code>. That keeps the statistical point — bypass the rejection
+        check and the secret term survives the average — visible without the ring machinery. Attack 4
+        below does the real ring arithmetic.
+      </p>
       <p class="exhibit-ref">
         Real-world basis: <em>Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels</em>,
         IACR TCHES 2025 — recovers the ML-DSA private key once rejected/leaked responses are observed.
@@ -392,60 +409,160 @@ app.innerHTML = `
     <details class="attack-reveal" id="reveal-4">
       <summary>
         <span class="reveal-step">Next attack →</span>
-        <span class="reveal-title">Attack 4 · Fault injection on KECCAK nonce generation</span>
-        <span class="reveal-hint">The subtlest one: remove randomness and the signature betrays its own key. Expand to continue.</span>
+        <span class="reveal-title">Attack 4 · Loop-abort fault on nonce expansion</span>
+        <span class="reveal-hint">The subtlest one: end a loop early and the signature pins its own key inside a tiny lattice. Expand to continue.</span>
       </summary>
     <section class="exhibit panel" id="attack-4">
       <div class="exhibit-head">
         <div>
-          <p class="kicker">SIMULATED • faulty KECCAK absorption</p>
-          <h2>ATTACK 4: FAULT INJECTION ON KECCAK SEED GENERATION</h2>
-          <p>A loop-abort fault zeros the per-signature nonce, making the mask predictable — which collapses the y+c·s₁ blinding that hides the signing key.</p>
+          <p class="kicker">SIMULATED FAULT • REAL LATTICE RECOVERY</p>
+          <h2>ATTACK 4: LOOP-ABORT FAULT ON NONCE EXPANSION</h2>
+          <p>Cut the loop that fills the nonce <code>y</code> short and most of <code>y</code> stays zero — which shrinks the lattice hiding the signing key from dimension 256 to a few dozen.</p>
         </div>
       </div>
 
       <div class="primer" role="note" aria-label="What's different this time">
         <h3>What's different this time</h3>
         <p class="small-text">
-          Attacks 1–3 read a leak; this one <em>removes randomness</em>. ML-DSA hides the secret in every
-          signature with a fresh nonce: it releases <code>z = y + c·s₁</code>, where <code>y</code> is a
-          one-time mask expanded from a KECCAK/SHAKE call. You see <code>z</code> and the challenge
-          <code>c</code>, but not <code>y</code> — so <code>s₁</code> stays hidden. A <em>loop-abort</em>
-          fault ends the nonce-expansion loop early, leaving <code>y</code> at a predictable value the
-          attacker can recompute from public data. Once <code>y</code> is known, subtract it and solve
-          <code>s₁ = (z − y) / (17·c)</code>. The blinding is gone.
+          Attacks 1–3 read a leak or skipped a check. This one <em>shortens a loop</em>. ML-DSA masks the
+          secret in every signature as <code>z = y + c·s₁</code>, where the nonce <code>y</code> is 256
+          coefficients that <strong>ExpandMask</strong> (FIPS 204 Algorithm 34, via the per-coefficient
+          BitUnpack loop of Algorithm 19) writes <em>one at a time</em>. A fault on the loop counter — or a
+          skipped back-jump — ends that loop after <code>m</code> iterations. Coefficients
+          <code>y₀ … y₍ₘ₋₁₎</code> are real samples; <code>yₘ … y₂₅₅</code> are still the zeros the output
+          buffer started with.
+        </p>
+        <p class="small-text">
+          The attacker never learns <code>y</code> and never tries to. What they get is a signature whose
+          mask lives in an <code>m</code>-dimensional corner of a 256-dimensional space. Multiplying the
+          released <code>z</code> by <code>c⁻¹</code> in the ring gives
+        </p>
+        <p class="formula-line"><code>c⁻¹z − s₁ ≡ c⁻¹y ≡ Σ<sub>i&lt;m</sub> y<sub>i</sub>·(c⁻¹xⁱ) &nbsp;(mod q)</code></p>
+        <p class="small-text">
+          so <code>c⁻¹z</code> sits close to the lattice spanned by just <code>m</code> vectors, and the
+          <em>offset is the secret</em>. Project that relation onto a few dozen coordinates and lattice
+          reduction reads <code>s₁</code> straight out — from a <strong>single</strong> faulty signature.
+        </p>
+      </div>
+
+      <div class="misconception" role="note" aria-label="What this attack is not">
+        <h3>What this attack is <em>not</em></h3>
+        <p class="small-text">
+          Nothing here makes <code>y</code> computable from public data, and nothing here is about the
+          per-signature randomness <code>rnd</code>. FIPS 204 Algorithm 7 derives the nonce seed as
+          <code>ρ″ ← H(K ‖ rnd ‖ μ)</code>, and <code>K</code> is a 32-byte seed stored <em>inside the
+          private key</em> — so <code>y</code> stays unpredictable to an attacker whatever <code>rnd</code>
+          is. That is precisely why FIPS 204's <strong>deterministic variant</strong>, which sets
+          <code>rnd = 0³²</code>, is an approved mode and remains secure: the secrecy comes from
+          <code>K</code>, not from <code>rnd</code>. (FIPS 204 does warn that the deterministic variant makes
+          fault attacks — like this one — harder to mitigate, which is a different concern from
+          predictability.) The loop-abort fault does not make <code>y</code> predictable. It makes
+          <code>y</code> mostly <em>zero</em>, which is a different and much sharper weapon.
         </p>
       </div>
 
       <p class="attacker-story">
-        <strong>You are the attacker:</strong> you have physical access to a smartcard signing with ML-DSA.
-        You glitch its clock at the moment it expands the nonce, aborting that loop. The signature it hands
-        back is now masked by a nonce <em>you</em> can reconstruct — so its own output betrays the key.
+        <strong>You are the attacker:</strong> a smartcard signing with ML-DSA is on your bench and you have
+        a clock glitcher. You do not try to guess the nonce — you shorten the loop that builds it, take the
+        one signature that comes back, and finish the job with lattice reduction on your laptop.
       </p>
 
       <div class="sim-warning" role="note">
-        ⚠ SIMULATED — this is a physical-fault demo, not a practical browser attack tool.
+        ⚠ SIMULATED FAULT — the glitch is injected in software here. The lattice recovery below, however, is
+        real: it runs an actual LLL over the actual ML-DSA-44 ring in your browser.
       </div>
 
-      <div class="button-row">
-        <button id="run-keccak-btn">Run Attack Simulation</button>
+      <div class="grid-2">
+        <div class="panel inset-panel">
+          <h3>Where does the fault land?</h3>
+          <label>ExpandMask loop aborts after m = <span id="abort-value">8</span> of 256 coefficients
+            <input id="abort-slider" type="range" min="1" max="256" value="8" />
+          </label>
+          <p class="small-text">
+            Drag it: the strip below shows the nonce collapsing to a short prefix, and the chart shows the
+            lattice dimension an attacker then needs. Earlier abort ⇒ smaller lattice ⇒ easier recovery.
+          </p>
+          <div class="button-row">
+            <button id="run-loopabort-btn">Inject fault, sign, and run the lattice attack</button>
+          </div>
+        </div>
+        <div class="panel inset-panel">
+          <h3>Effective dimension</h3>
+          <div id="abort-readout" class="result-box" aria-live="polite">Move the slider.</div>
+        </div>
       </div>
-      <canvas id="keccak-canvas" width="600" height="260" role="img" aria-label="KECCAK sponge-state comparison: the highlighted lanes are the bytes that actually differ between the honest and faulted nonce derivation"></canvas>
+
+      <canvas id="nonce-canvas" width="600" height="150" role="img" aria-label="Nonce coefficient strips: the honest run fills all 256 coefficients, the faulted run stops at the abort point and leaves the rest zero"></canvas>
       <figcaption class="chart-legend">
-        <span class="axes">5×5 sponge state — left: honest absorb (random κ) &nbsp;·&nbsp; right: faulted absorb (κ zeroed)</span>
-        <span class="swatch" style="--c:#00d4ff">lane byte intensity</span>
-        <span class="swatch" style="--c:#ff3366">lanes that actually differ (diffed, not hardcoded)</span>
+        <span class="axes">Each strip is the 256 coefficients of y, index 0 on the left</span>
+        <span class="swatch" style="--c:#00d4ff">coefficient the loop actually sampled (shade = magnitude)</span>
+        <span class="swatch" style="--c:#4a5f59">never written — still zero after the abort</span>
+        <span class="swatch" style="--c:#ff3366">abort point m</span>
       </figcaption>
+
+      <canvas id="dimension-canvas" width="600" height="200" role="img" aria-label="Lattice dimension required for key recovery as a function of the abort point, with the LLL and BKZ feasibility bands from the paper"></canvas>
+      <figcaption class="chart-legend">
+        <span class="axes">X: abort point m (surviving nonce coefficients) &nbsp;·&nbsp; Y: embedding dimension ℓ+1 needed, from eq. (2) of the paper</span>
+        <span class="swatch" style="--c:#35d6bb">required dimension (curve)</span>
+        <span class="swatch" style="--c:#ff3366">current abort point</span>
+        <span class="swatch" style="--c:#ffd166">shaded bands: reduction reach reported in the paper</span>
+        <span class="swatch swatch-dash" style="--c:#7fd0ff">this page's in-browser LLL cap</span>
+      </figcaption>
+
       <div class="context-bar">
-        <strong>Primitive caveat:</strong> the real derivation uses SHAKE-256 (a KECCAK sponge). This demo
-        substitutes SHA-256 in a counter-based XOF as a browser-native stand-in — the sponge <em>diffusion</em>
-        is illustrative, but the collapse of the <code>y</code>-mask is the faithful part of the lesson.
+        <strong>Why the dimension is the whole story:</strong> an unfaulted signature has all 256
+        coefficients of <code>y</code> alive, and eq. (2) then asks for a projection <em>larger than the
+        ring itself</em> — there is no subset to attack, which is exactly why normal ML-DSA signatures leak
+        nothing. Every coefficient the fault steals moves that requirement down into range.
       </div>
-      <div id="keccak-results" class="result-box" aria-live="polite">Awaiting KECCAK simulation.</div>
+
+      <div id="loopabort-results" class="result-box" aria-live="polite">No faulty signature collected yet.</div>
+
+      <div class="honesty-box" role="note" aria-label="What is real and what is modelled in this exhibit">
+        <h3>What is real here, and what is not</h3>
+        <ul>
+          <li><strong>Real computation.</strong> The ML-DSA-44 parameters (<code>q = 8&nbsp;380&nbsp;417</code>,
+            <code>γ₁ = 2¹⁷</code>, <code>τ = 39</code>, <code>β = 78</code>, <code>η = 2</code>,
+            <code>ζ = 1753</code>) are FIPS 204 Table 1. SHAKE256 is a genuine KECCAK-f[1600] sponge, and
+            ExpandMask, BitUnpack, SampleInBall and the NTT are FIPS 204 Algorithms 34, 19, 29 and 41–42.
+            The ring arithmetic in <code>Z_q[x]/(x²⁵⁶+1)</code> is exact, the rejection test
+            <code>‖z‖∞ ≥ γ₁ − β</code> is the standard's own line-23 check, and the recovery runs a real LLL
+            over a real Kannan embedding — the <code>s₁</code> printed above is what lattice reduction
+            actually returned, not a replay of the planted secret.</li>
+          <li><strong>Simulated or reduced.</strong> The fault is injected in software; no glitcher is
+            involved. This exhibit signs with <em>one</em> polynomial, where ML-DSA-44 uses ℓ = 4 — the real
+            attack repeats the same reduction per polynomial. The challenge <code>c</code> is drawn by
+            SampleInBall from a random seed rather than from a real commitment hash, because the page does
+            not build <code>A</code>, <code>w₁</code> or the hint; consequently the second validity check,
+            <code>‖r₀‖∞ ≥ γ₂ − β</code>, is not evaluated here. The in-browser LLL is capped at
+            <code>m = ${EXECUTABLE_ABORT_LIMIT}</code> for responsiveness; the paper reports LLL succeeding
+            to <code>m ≈ 50–60</code> and BKZ to <code>m ≈ 100</code>. Past the cap this exhibit
+            <em>models</em> the attack — it reports the dimension the reduction would need and says so —
+            rather than executing it.</li>
+          <li><strong>Scope.</strong> ePrint 2016/449 attacks BLISS, GLP, TESLA, PASSSign and GPV; ML-DSA
+            did not exist when it was written. ML-DSA has the same Fiat–Shamir-with-aborts shape
+            (<code>z = y + c·s₁</code> with <code>y</code> built coefficient by coefficient), so the
+            mechanism carries over, but this exhibit is an adaptation of the paper's attack, not a result
+            reported in it.</li>
+        </ul>
+      </div>
+
+      <div class="context-bar">
+        <strong>Countermeasures (paper, §7):</strong> check that the top <code>ε·n</code> coefficients of
+        <code>y</code> are not all zero — at <code>ε = 1/16</code> the check costs almost nothing, leaves the
+        distribution of <code>y</code> statistically indistinguishable, and pushes the attacker's lattice
+        past dimension <code>(1−ε)n</code>. Or generate <code>y</code>'s coefficients in a random order, so
+        an aborted loop no longer tells the attacker <em>which</em> <code>c⁻¹xⁱ</code> the relation is built
+        from. (If the buffer holds a common unknown constant instead of zero — the paper's Remark 3 — the
+        attacker just adds the all-ones vector to the generators, so "not zero-initialised" is not a
+        defence.)
+      </div>
+
       <p class="exhibit-ref">
         Real-world basis: Espitau, Fouque, Gérard &amp; Tibouchi, <em>Loop-Abort Faults on Lattice-Based
-        Fiat–Shamir and Hash-and-Sign Signatures</em>, SAC 2016 — a loop-abort fault leaves the commitment
-        (nonce) at zero, exposing the signing key.
+        Fiat–Shamir and Hash-and-Sign Signatures</em>, SAC 2016 — a fault ends the commitment-generation
+        loop early, leaving the commitment polynomial with only a few non-zero coefficients, and one such
+        signature recovers the whole secret key by lattice reduction.
         <a href="https://eprint.iacr.org/2016/449" target="_blank" rel="noopener">ePrint 2016/449</a>
       </p>
     </section>
@@ -475,7 +592,8 @@ app.innerHTML = `
             <tr><td>NTT power SCA</td><td>Shuffling</td><td>10–20%</td><td>Available</td></tr>
             <tr><td>Rejection bypass</td><td>Output consistency check</td><td>~10%</td><td>Available</td></tr>
             <tr><td>KyberSlash timing</td><td>Constant-time assembly</td><td>0–5%</td><td>Patched</td></tr>
-            <tr><td>Faulty KECCAK</td><td>Redundant KECCAK + compare</td><td>~50%</td><td>Research prototype</td></tr>
+            <tr><td>Loop-abort on the nonce y</td><td>Reject y whose top ε·n coefficients are all zero</td><td>&lt;1%</td><td>Available</td></tr>
+            <tr><td>Loop-abort on the nonce y</td><td>Sample y's coefficients in random order</td><td>~0%</td><td>Available</td></tr>
           </tbody>
         </table>
       </div>
@@ -894,7 +1012,8 @@ const cpaCanvas = must<HTMLCanvasElement>('#cpa-canvas');
 const cpaGrowthCanvas = must<HTMLCanvasElement>('#cpa-growth-canvas');
 const rejectionCanvas = must<HTMLCanvasElement>('#rejection-canvas');
 const timingCanvas = must<HTMLCanvasElement>('#timing-canvas');
-const keccakCanvas = must<HTMLCanvasElement>('#keccak-canvas');
+const nonceCanvas = must<HTMLCanvasElement>('#nonce-canvas');
+const dimensionCanvas = must<HTMLCanvasElement>('#dimension-canvas');
 const traceHover = must<HTMLDivElement>('#trace-hover');
 const butterflyGrid = must<HTMLDivElement>('#butterfly-grid');
 const cpaResults = must<HTMLDivElement>('#cpa-results');
@@ -902,7 +1021,8 @@ const normalLog = must<HTMLDivElement>('#normal-log');
 const faultedLog = must<HTMLDivElement>('#faulted-log');
 const recoveryPanel = must<HTMLDivElement>('#recovery-panel');
 const timingResults = must<HTMLDivElement>('#timing-results');
-const keccakResults = must<HTMLDivElement>('#keccak-results');
+const abortReadout = must<HTMLDivElement>('#abort-readout');
+const loopAbortResults = must<HTMLDivElement>('#loopabort-results');
 
 const skSlider = must<HTMLInputElement>('#sk-slider');
 const ctSlider = must<HTMLInputElement>('#ct-slider');
@@ -1358,87 +1478,273 @@ constantButton.addEventListener('click', () => {
   void runTiming('constant-time');
 });
 
-function drawKeccakGrid(
-  normalLanes: bigint[],
-  faultedLanes: bigint[],
-  laneChanged: boolean[],
-): void {
-  const ctx = clearPlot(keccakCanvas);
-  const cell = 44;
-  // `highlightChanged` colors a lane red only when it TRULY differs from its
-  // counterpart in the other run — a real diff, not a hardcoded column.
-  const drawOne = (offsetX: number, lanes: bigint[], title: string, highlightChanged: boolean) => {
-    ctx.fillStyle = '#d7ffe5';
-    ctx.font = '14px sans-serif';
-    ctx.fillText(title, offsetX, 20);
+// ---------------------------------------------------------------------------
+// Attack 4 — loop-abort fault on ExpandMask
+// ---------------------------------------------------------------------------
 
-    for (let row = 0; row < 5; row += 1) {
-      for (let col = 0; col < 5; col += 1) {
-        const index = row * 5 + col;
-        const lane = lanes[index] ?? 0n;
-        const intensity = Number(lane & 255n) / 255;
-        const changed = laneChanged[index] === true;
-        const hue = highlightChanged && changed ? 'rgba(255, 51, 102,' : 'rgba(0, 212, 255,';
-        ctx.fillStyle = `${hue}${0.25 + intensity * 0.6})`;
-        ctx.fillRect(offsetX + col * cell, 32 + row * cell, cell - 4, cell - 4);
-      }
+const abortSlider = must<HTMLInputElement>('#abort-slider');
+const abortValue = must<HTMLSpanElement>('#abort-value');
+const runLoopAbortButton = must<HTMLButtonElement>('#run-loopabort-btn');
+
+/**
+ * The nonce drawn in the strips. It starts as one real ExpandMask output so the
+ * strip is populated before anything is run, and is replaced by the honest
+ * nonce of the last actual attack run. Truncating it at m is exactly what the
+ * faulted device produces — the abort only shortens the loop, it does not
+ * change the coefficients that were already written.
+ */
+let displayNonce = expandMaskPoly(new Uint8Array(64).fill(0x5a), 0);
+
+/** Draw the honest and faulted nonce as 256-cell strips with the abort marker. */
+function drawNonceStrips(abortAfter: number): void {
+  const ctx = clearPlot(nonceCanvas);
+  const left = 14;
+  const width = nonceCanvas.width - left * 2;
+  const cell = width / ML_DSA_44.n;
+  const gamma1 = ML_DSA_44.gamma1;
+
+  const strip = (top: number, label: string, limit: number): void => {
+    ctx.fillStyle = '#d7ffe5';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(label, left, top - 6);
+    for (let i = 0; i < ML_DSA_44.n; i += 1) {
+      const live = i < limit;
+      const magnitude = Math.min(1, Math.abs(displayNonce[i] ?? 0) / gamma1);
+      ctx.fillStyle = live
+        ? `rgba(0, 212, 255, ${0.22 + magnitude * 0.75})`
+        : 'rgba(74, 95, 89, 0.9)';
+      ctx.fillRect(left + i * cell, top, Math.max(cell - 0.4, 0.6), 34);
     }
+    ctx.strokeStyle = 'rgba(215, 255, 229, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left, top, width, 34);
   };
 
-  drawOne(30, normalLanes, 'Honest absorb (random κ)', false);
-  drawOne(320, faultedLanes, 'Faulted absorb (κ = 0)', true);
+  strip(28, 'Honest run — all 256 coefficients sampled', ML_DSA_44.n);
+  strip(100, `Faulted run — loop aborted after m = ${abortAfter}`, abortAfter);
+
+  // The abort marker, on the faulted strip.
+  const markerX = left + abortAfter * cell;
+  ctx.strokeStyle = '#ff3366';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(markerX, 94);
+  ctx.lineTo(markerX, 142);
+  ctx.stroke();
+  ctx.fillStyle = '#ff3366';
+  ctx.font = '700 11px sans-serif';
+  const labelText = `m = ${abortAfter}`;
+  const labelWidth = ctx.measureText(labelText)?.width ?? 40;
+  const labelX = Math.min(markerX + 5, nonceCanvas.width - labelWidth - 4);
+  ctx.fillText(labelText, labelX, 140);
 }
 
-must<HTMLButtonElement>('#run-keccak-btn').addEventListener('click', async () => {
-  keccakResults.innerHTML = '<p>Aborting the nonce-expansion loop…</p>';
-  const result = await simulateFaultyKeccakAttack();
-  drawKeccakGrid(result.normalLanes, result.faultedLanes, result.laneChanged);
-  const changedCount = result.laneChanged.filter(Boolean).length;
-  // Does the attacker's PUBLIC-only guess of y match reality? Only in the faulted run.
-  const normalGuessMatches = result.predictedNormalY.every(
-    (value, index) => value === result.normalY[index],
-  );
-  // Walk the actual arithmetic for coefficient 0 so the "linear solve" is a
-  // visible cancellation, not a formula. Every number here is from THIS run.
-  const z0 = result.z[0] ?? 0;
-  const yReal0 = result.faultedY[0] ?? 0;
-  const yGuess0 = result.predictedFaultedY[0] ?? 0;
-  const c0 = result.challenge[0] ?? 1;
-  const s0 = result.secret[0] ?? 0;
-  const rec0 = result.recovered[0] ?? 0;
-  const numer0 = z0 - yGuess0;
+/**
+ * Required embedding dimension against the abort point, with the reach of LLL
+ * and BKZ reported in the paper drawn as bands. This is the "collapse in
+ * effective dimension" the fault buys.
+ */
+function drawDimensionCurve(abortAfter: number): void {
+  const ctx = clearPlot(dimensionCanvas);
+  const padLeft = 42;
+  const padRight = 14;
+  const padTop = 16;
+  const padBottom = 26;
+  const plotWidth = dimensionCanvas.width - padLeft - padRight;
+  const plotHeight = dimensionCanvas.height - padTop - padBottom;
+  const maxM = ML_DSA_44.n;
+  const maxDim = 300;
 
-  keccakResults.innerHTML = `
-    <p><strong>Honest derivation:</strong> ${result.normalInput}</p>
-    <p><strong>Faulted derivation:</strong> ${result.faultedInput}</p>
-    <p><strong>Lanes actually changed by the fault:</strong> ${changedCount} of 25 (highlighted red on the right).</p>
-    <hr />
-    <p><strong>The mask, honest run:</strong> the attacker's best public guess of y (κ=0) matches the
-      real nonce? <strong>${normalGuessMatches ? 'yes' : 'no'}</strong> — the fresh random κ keeps y hidden,
-      so z = y + c·s₁ stays blinded and s₁ is safe.</p>
-    <p><strong>The mask, faulted run:</strong> attacker recomputes y from public data only (κ=0)
-      and it matches the real faulted nonce? <strong>${result.maskingCollapsed ? 'yes' : 'no'}</strong>.
-      With y now known, subtract it: s₁ = (z − y) / (17·c).</p>
+  const xAt = (m: number): number => padLeft + (m / maxM) * plotWidth;
+  const yAt = (dim: number): number => padTop + plotHeight - (dim / maxDim) * plotHeight;
 
-    <div class="algebra-walk" role="region" aria-label="Step-by-step recovery of the first secret coefficient" tabindex="0">
-      <p class="algebra-title">Watch coefficient 0 fall out — real numbers from this run</p>
-      <ol class="algebra-steps">
-        <li>The device released <code>z[0] = ${z0}</code> (this is <code>y[0] + 17·c[0]·s₁[0]</code>, all public except s₁).</li>
-        <li>Attacker recomputes the nonce from public data (κ=0): <code>y[0] = ${yGuess0}</code>${yGuess0 === yReal0 ? ' — matches the real faulted nonce ✓' : ''}.</li>
-        <li>Subtract the now-known mask: <code>z[0] − y[0] = ${z0} − ${yGuess0} = ${numer0}</code>. The blinding is gone.</li>
-        <li>Divide by <code>17·c[0] = 17·${c0} = ${17 * c0}</code>: <code>${numer0} / ${17 * c0} = ${rec0}</code>.</li>
-        <li>Recovered <code>s₁[0] = ${rec0}</code> vs actual <code>${s0}</code> → ${rec0 === s0 ? '<strong>exact ✓</strong>' : 'mismatch'}.</li>
-      </ol>
-      <p class="small-text">The <code>17</code> is not magic: it is ζ, the primitive 256th root of unity mod q=3329 that the NTT multiplies by — the same constant you saw as the first zeta in Attack 1. Because <code>y</code> is known and everything else is public and linear, one subtraction and one division recover the secret; no search, no lattice reduction.</p>
-    </div>
+  // Feasibility bands, expressed in lattice dimension: the paper reports LLL
+  // reaching m ≈ 50–60 and BKZ m ≈ 100, which is dimension ≈ 70 and ≈ 115.
+  const bands: Array<[number, number, string]> = [
+    [0, 70, 'rgba(53, 214, 187, 0.13)'],
+    [70, 115, 'rgba(255, 209, 102, 0.12)'],
+    [115, maxDim, 'rgba(255, 51, 102, 0.10)'],
+  ];
+  for (const [low, high, colour] of bands) {
+    ctx.fillStyle = colour;
+    ctx.fillRect(padLeft, yAt(high), plotWidth, yAt(low) - yAt(high));
+  }
 
-    <p><strong>Recovered s₁[0..7]:</strong> [${Array.from(result.recovered).join(', ')}]
-      &nbsp;vs actual [${Array.from(result.secret).join(', ')}] → ${result.success ? 'exact match ✓ key recovered' : 'no match'}.</p>
-    <p class="small-text"><strong>Why it worked:</strong> nothing broke SHAKE or the lattice math — the fault
-      only removed the randomness that made y unpredictable. Predictable nonce ⇒ collapsed blinding ⇒ linear solve.</p>
+  // Band captions sit just inside the top of each band so none of them collide
+  // with the n = 256 rule drawn below.
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = 'rgba(215, 255, 229, 0.75)';
+  ctx.fillText('LLL reach (paper: m ≈ 50–60)', padLeft + 6, yAt(0) - 6);
+  ctx.fillText('BKZ reach (paper: m ≈ 100)', padLeft + 6, yAt(70) - 6);
+  ctx.fillText('beyond published reach', padLeft + 6, yAt(115) - 6);
+
+  // n = 256: past here no projection is smaller than the ring, so the relation
+  // carries no usable information at all.
+  ctx.strokeStyle = 'rgba(215, 255, 229, 0.45)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(padLeft, yAt(maxM));
+  ctx.lineTo(padLeft + plotWidth, yAt(maxM));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(215, 255, 229, 0.75)';
+  ctx.fillText('n = 256 — above this the fault buys nothing', padLeft + 6, yAt(maxM) - 5);
+
+  // the curve itself
+  ctx.strokeStyle = '#35d6bb';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for (let m = 1; m <= maxM; m += 1) {
+    const dim = Math.min(maxDim, requiredEmbeddingDimension(m));
+    const x = xAt(m);
+    const y = yAt(dim);
+    m === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // this page's executable limit
+  ctx.strokeStyle = 'rgba(127, 208, 255, 0.85)';
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(xAt(EXECUTABLE_ABORT_LIMIT), padTop);
+  ctx.lineTo(xAt(EXECUTABLE_ABORT_LIMIT), padTop + plotHeight);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(127, 208, 255, 0.9)';
+  ctx.fillText(`in-browser cap m = ${EXECUTABLE_ABORT_LIMIT}`, xAt(EXECUTABLE_ABORT_LIMIT) + 5, padTop + 12);
+
+  // current abort point
+  const currentDim = Math.min(maxDim, requiredEmbeddingDimension(abortAfter));
+  ctx.strokeStyle = '#ff3366';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(xAt(abortAfter), padTop);
+  ctx.lineTo(xAt(abortAfter), padTop + plotHeight);
+  ctx.stroke();
+  ctx.fillStyle = '#ff3366';
+  ctx.beginPath();
+  ctx.arc(xAt(abortAfter), yAt(currentDim), 4.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // axes ticks
+  ctx.fillStyle = 'rgba(215, 255, 229, 0.7)';
+  ctx.font = '10px sans-serif';
+  for (const m of [0, 64, 128, 192, 256]) {
+    ctx.fillText(String(m), xAt(m) - 8, dimensionCanvas.height - 8);
+  }
+  for (const dim of [0, 100, 200, 300]) {
+    ctx.fillText(String(dim), 8, yAt(dim) + 3);
+  }
+}
+
+/** Slider-driven readout: the dimension analysis, no lattice work. */
+function renderAbortReadout(abortAfter: number): void {
+  const dimension = requiredEmbeddingDimension(abortAfter);
+  const rounded = Math.ceil(dimension);
+  const reach =
+    rounded > ML_DSA_44.n
+      ? 'no projection is smaller than the ring — the signature leaks nothing'
+      : rounded <= 70
+        ? 'inside LLL reach'
+        : rounded <= 115
+          ? 'needs BKZ'
+          : 'beyond the reduction reach reported in the paper';
+
+  abortReadout.innerHTML = `
+    <p><strong>Nonce coefficients still alive:</strong> ${abortAfter} of 256
+      (${ML_DSA_44.n - abortAfter} left at zero).</p>
+    <p><strong>Embedding dimension required:</strong> ℓ+1 ≈ ${rounded}
+      &mdash; ${reach}.</p>
+    <p class="small-text">From eq. (2) of Espitau et al., instantiated with ML-DSA-44's
+      q = ${ML_DSA_44.q.toLocaleString()} and η = ${ML_DSA_44.eta}. The whole attack is this number:
+      256 coefficients of secret, pinned down by a lattice of dimension ≈ m.</p>
+    ${
+      abortAfter > EXECUTABLE_ABORT_LIMIT
+        ? `<p class="small-text"><strong>Note:</strong> past m = ${EXECUTABLE_ABORT_LIMIT} this page
+             <em>models</em> the attack rather than running it — the reduction is real work, and a
+             browser tab is not where you would do it.</p>`
+        : ''
+    }
   `;
+}
+
+function refreshAbortViews(): void {
+  const abortAfter = Number(abortSlider.value);
+  abortValue.textContent = String(abortAfter);
+  drawNonceStrips(abortAfter);
+  drawDimensionCurve(abortAfter);
+  renderAbortReadout(abortAfter);
+}
+
+abortSlider.addEventListener('input', refreshAbortViews);
+
+runLoopAbortButton.addEventListener('click', () => {
+  void withBusy(runLoopAbortButton, 'Reducing lattice…', async () => {
+    const abortAfter = Number(abortSlider.value);
+    loopAbortResults.innerHTML =
+      `<p>Aborting ExpandMask after ${abortAfter} coefficients, signing, then reducing…</p>`;
+    await nextFrame();
+
+    const result = runLoopAbortAttack(abortAfter);
+    // Show the nonce this run actually expanded, not the placeholder.
+    displayNonce = result.honestY;
+    refreshAbortViews();
+
+    const signerBlock = `
+      <p><strong>The faulty signature.</strong> ExpandMask stopped after ${result.abortAfter}
+        coefficients, so y has ${result.nonzeroY} non-zero coefficients and
+        ${ML_DSA_44.n - result.nonzeroY} zeros. The device computed z = y + c·s₁ and released it with
+        the challenge c (τ = ${ML_DSA_44.tau} coefficients of ±1).</p>
+      <p><strong>Would a correct signer have released it?</strong> ‖z‖∞ = ${result.zInfinityNorm.toLocaleString()}
+        against the FIPS 204 bound γ₁ − β = ${result.rejectionBound.toLocaleString()} —
+        ${result.wouldReject
+          ? 'no, this one is rejected, so the attacker glitches again'
+          : 'yes, it passes the ‖z‖∞ check and goes out the door'}.
+        (Rejection sampling means a fault may be wasted; ML-DSA-44 repeats the signing loop 4.25 times on
+        average, which is roughly how many injections the paper expects per usable signature.)</p>`;
+
+    if (result.skippedReason) {
+      loopAbortResults.innerHTML = `
+        ${signerBlock}
+        <p><strong>Recovery not executed:</strong> ${result.skippedReason}</p>
+        <p class="small-text">Everything above is real computation; only the lattice step was skipped.</p>`;
+      return;
+    }
+
+    const solved = result.blocks.filter((block) => block.solved).length;
+    const rate = (result.recoveredCount / ML_DSA_44.n) * 100;
+
+    loopAbortResults.innerHTML = `
+      ${signerBlock}
+      <div class="algebra-walk" role="region" aria-label="How the recovery proceeded" tabindex="0">
+        <p class="algebra-title">What the attacker did with it — real numbers from this run</p>
+        <ol class="algebra-steps">
+          <li>Inverted the challenge in the ring: c is invertible mod q?
+            <strong>${result.challengeInvertible ? 'yes' : 'no'}</strong>
+            (probability ≈ (1 − 1/q)²⁵⁶, so essentially always).</li>
+          <li>Formed <code>v = c⁻¹z</code>, which satisfies
+            <code>v − s₁ ≡ Σ<sub>i&lt;${result.abortAfter}</sub> y<sub>i</sub>·(c⁻¹xⁱ)</code> — a lattice
+            spanned by only ${result.abortAfter} vectors instead of 256.</li>
+          <li>Projected onto index blocks of size ${result.projection}
+            (eq. (2) asked for ℓ+1 ≈ ${Math.ceil(result.requiredDimension)}), built the Kannan embedding,
+            and ran LLL on each: ${solved} of ${result.blocks.length} blocks returned a short vector.</li>
+          <li>Lattice time: ${formatNumber(result.latticeMs, 0)} ms, from
+            <strong>one</strong> faulty signature.</li>
+        </ol>
+        <p class="small-text">Never once did the attacker guess, recompute or need the nonce y. The only
+          thing they used about y is that most of it is zero.</p>
+      </div>
+      <p><strong>Recovered s₁:</strong> ${result.recoveredCount} of ${ML_DSA_44.n} coefficients exact
+        (${formatNumber(rate, 1)}%) — ${result.success ? '<strong>full key recovery ✓</strong>' : 'partial'}.</p>
+      <p class="small-text">First 12 coefficients — recovered
+        [${Array.from(result.recovered).slice(0, 12).join(', ')}] vs actual
+        [${Array.from(result.secret).slice(0, 12).join(', ')}].</p>`;
+  });
 });
 
 void generateTraces();
 drawClusterHistogram(undefined);
 renderRejectionLogs();
+refreshAbortViews();

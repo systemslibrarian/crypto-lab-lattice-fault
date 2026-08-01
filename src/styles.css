@@ -875,3 +875,60 @@ td {
     padding-top: 1.5rem;
   }
 }
+
+/* ---- Attack 4: misconception call-out + honesty disclosure ------------- */
+.misconception,
+.honesty-box {
+  margin: 0.85rem 0;
+  padding: 0.85rem 1.05rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-soft) 8%, var(--box));
+}
+
+.misconception {
+  border-left: 3px solid #ff6b7f;
+}
+
+.honesty-box {
+  border-left: 3px solid var(--accent);
+}
+
+.misconception h3,
+.honesty-box h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.honesty-box ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.misconception code,
+.honesty-box code,
+.formula-line code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  padding: 0.05em 0.35em;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+.formula-line {
+  margin: 0.55rem 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.formula-line code {
+  display: inline-block;
+  padding: 0.4em 0.8em;
+  font-size: 0.92rem;
+}
