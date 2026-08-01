@@ -85,7 +85,8 @@ app.innerHTML = `
           </p>
           <p>
             In practice ML-KEM and ML-DSA don't store the key as raw grid vectors — they store
-            <strong>polynomials</strong> (256 coefficients mod q = 3329). Multiplying two polynomials the
+            <strong>polynomials</strong> (256 coefficients modulo a prime q — q = 3329 for ML-KEM,
+            q = 8&nbsp;380&nbsp;417 for ML-DSA). Multiplying two polynomials the
             slow way is 256×256 work. The <strong>NTT</strong> (Number-Theoretic Transform) is a trick that
             first evaluates each polynomial at 256 special points; in that "NTT form" a product is just
             <strong>point-by-point multiplication</strong> — 256 cheap multiplies instead of 65 536.
@@ -339,9 +340,13 @@ app.innerHTML = `
         <p class="small-text">
           Attacks 1–2 needed a probe or a glitcher. This one needs only a <em>stopwatch</em>. The bug is
           one line: Kyber decodes a coefficient with an integer divide <code>(2·v + q/2) / q</code>, and the
-          <em>dividend carries the secret</em>. On a CPU with no hardware divider (Cortex-M4), that compiles
-          to a shift-subtract loop whose <strong>iteration count grows with the magnitude of the dividend</strong>.
+          <em>dividend carries the secret</em>. When the compiler cannot emit a hardware divide — as on the
+          Raspberry Pi 2 (Cortex-A7) build the KyberSlash paper attacks, where gcc's default ABI does not
+          guarantee a divide instruction — it calls a software routine instead: a shift-subtract loop whose
+          <strong>iteration count grows with the magnitude of the dividend</strong>.
           Bigger secret-influenced value ⇒ more loop iterations ⇒ more cycles. Time the divide, learn the secret.
+          (Cores that <em>do</em> have a divider leak too, just less: the Cortex-M4's hardware <code>udiv</code>
+          itself runs 2–12 cycles depending on its operands.)
         </p>
       </div>
 
@@ -368,8 +373,9 @@ app.innerHTML = `
       <div class="context-bar">
         <strong>Why a histogram, not wall-clock:</strong> in-browser timers are quantized and Spectre-throttled,
         so <code>performance.now()</code> often hides or even inverts the gap. So we plot the <em>modeled divide-cycle
-        count</em> from the real restoring-division routine instead. On a Cortex-M4 these two clusters are cleanly
-        separated in actual cycles; the constant-time build collapses them into one.
+        count</em> from the real restoring-division routine instead. On a target that calls a software divide
+        routine these two clusters are cleanly separated in actual cycles; the constant-time build collapses
+        them into one.
       </div>
       <div id="timing-results" class="result-box" aria-live="polite">No divide-cycle measurements collected yet.</div>
       <p class="exhibit-ref">

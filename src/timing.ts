@@ -36,15 +36,22 @@ export function decodeMessageBitConstantTime(v: number): number {
  * ===========================================================================
  *
  * The real bug is a single division `t = (d << 1 + q/2) / q` where the
- * DIVIDEND `d` is a secret-dependent ciphertext/message coefficient. On a
- * Cortex-M4 (no hardware divide) this compiles to __aeabi_uidiv, a restoring
- * shift-subtract loop whose iteration count is the *bit-length of the
- * dividend*. Bigger secret-influenced coefficients ⇒ more loop iterations ⇒
- * measurably more cycles. That is the whole leak: one branch-free division
- * whose running time is a monotone function of the secret.
+ * DIVIDEND `d` is a secret-dependent ciphertext/message coefficient. Whenever
+ * the compiler cannot emit a hardware divide it calls a software routine
+ * instead (`__divsi3` / `__aeabi_uidiv`) — a restoring shift-subtract loop
+ * whose iteration count grows with the *bit-length of the dividend*. That is
+ * the case the KyberSlash paper exploits on the Raspberry Pi 2 (Cortex-A7),
+ * where gcc's default ABI does not guarantee a divide instruction (paper
+ * §5.1.1: the routine's cost jumps by ~20 cycles once the numerator reaches
+ * q = 3329, then again at 4096 and at 8192). Bigger secret-influenced
+ * coefficients ⇒ more loop iterations ⇒ measurably more cycles.
  *
- * `softwareDivideCycles` models exactly that loop and returns the number of
- * subtract-steps it performs — a faithful proxy for Cortex-M4 divide cycles.
+ * Cores that DO have a divider still leak, just less: Cortex-M4 has a hardware
+ * `udiv` and it takes 2-12 cycles depending on its operands (paper Table 4 —
+ * with divisor 3329 the crossover sits at numerator 2^11).
+ *
+ * `softwareDivideCycles` models the shift-subtract loop and returns the number
+ * of subtract-steps it performs.
  * We do NOT fabricate a gap: the count genuinely rises with the dividend.
  */
 export function softwareDivideCycles(dividend: number, divisor: number): number {

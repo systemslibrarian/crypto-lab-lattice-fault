@@ -10,7 +10,7 @@ export const ML_DSA_PARAMS = {
   gamma1: 1 << 17,
   gamma2: (8380417 - 1) / 88,
   beta: 78,
-  tau: 49,
+  tau: 39,
   eta: 2,
   omega: 80,
 } as const;
