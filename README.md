@@ -64,11 +64,16 @@ attack here. Each exhibit is a simplified, browser-friendly reconstruction of a 
 | 4 — Loop-abort fault on the nonce | Espitau, Fouque, Gérard & Tibouchi, *Loop-Abort Faults on Lattice-Based Fiat–Shamir and Hash-and-Sign Signatures*, SAC 2016 — [ePrint 2016/449](https://eprint.iacr.org/2016/449) |
 
 The numbers shown in-browser (recovered keys, recovery rates, timing gaps) are produced by the actual
-simulation code, which is exercised by the test suite in `tests/` on every CI run.
+simulation code, which is exercised by the test suite in `tests/` on every CI run. The browser suite in
+`e2e/claims.spec.ts` goes further: it drives the real page and re-derives each headline verdict from the
+numbers the page itself printed — the CPA winner against the secret on the slider, the accepted/rejected
+z-values against the FIPS 204 bound, the recovery rate against its own coefficient count, and the
+loop-abort recovery against the planted key — so a verdict that stops matching its own evidence fails CI.
 
 ```bash
-npm test         # run the test suite (Vitest): simulation logic + UI integration
-npm run build    # type-check (tsc) + production build
+npm test          # run the test suite (Vitest): simulation logic + UI integration
+npm run build     # type-check (tsc) + production build
+npm run test:a11y # browser gate (Playwright): on-screen claims + WCAG A/AA scan
 ```
 
 No environment variables are required.

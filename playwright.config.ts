@@ -1,8 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Accessibility gate. Tests run against the production build served by
- * `vite preview`, so what passes here is what actually ships to Pages.
+ * Browser gate: the on-screen claims suite (e2e/claims.spec.ts) and the
+ * accessibility scan (e2e/a11y.spec.ts). Tests run against the production build
+ * served by `vite preview`, so what passes here is what actually ships to Pages.
  * Run `npm run build` first (CI does).
  */
 export default defineConfig({
