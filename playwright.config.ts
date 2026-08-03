@@ -16,13 +16,13 @@ export default defineConfig({
     // dist/; without the build in front, a failing build leaves the previous
     // good bundle on disk and the suite passes green against code that no
     // longer compiles — silently invalidating mutation checks.
-    command: 'npm run build && npm run preview -- --port 4222 --strictPort',
-    url: 'http://localhost:4222/crypto-lab-lattice-fault/',
+    command: 'npm run build && npm run preview -- --port 4662 --strictPort',
+    url: 'http://localhost:4662/crypto-lab-lattice-fault/',
     reuseExistingServer: !process.env.CI,
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   use: {
-    baseURL: 'http://localhost:4222/crypto-lab-lattice-fault/',
+    baseURL: 'http://localhost:4662/crypto-lab-lattice-fault/',
     colorScheme: 'dark',
   },
 });
