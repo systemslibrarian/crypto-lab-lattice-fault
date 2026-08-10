@@ -62,7 +62,17 @@ table {
 }
 
 button {
-  border: 1px solid var(--border);
+  /* WCAG 1.4.11 (non-text contrast, 3:1) — the border is the ONLY thing that
+     identifies a button as a control here: the fill is a near-transparent
+     accent wash and the label takes the same --text as body copy. Measured from
+     screenshot pixels with the previous `var(--border)`, the boundary was
+     1.32:1 against the inset panel in dark and 1.06:1 in light, and the fill
+     itself 1.13:1 / 1.03:1 — nothing about the control cleared 3:1 in either
+     theme. `--accent` measures 12.8:1 dark and 4.23:1 light against the same
+     panel, and 11.3:1 / 4.11:1 against the button's own fill. It is what
+     `.attack-reveal > summary` already uses, which is why that control measured
+     10.42:1 / 5.57:1 while these buttons did not. */
+  border: 1px solid var(--accent);
   background: linear-gradient(180deg, rgba(0, 255, 102, 0.12), rgba(0, 255, 102, 0.02));
   color: var(--text);
   border-radius: 12px;
@@ -70,8 +80,12 @@ button {
   cursor: pointer;
 }
 
+/* Hover must not DROP below the resting state. The previous
+   `rgba(0, 212, 255, .5)` composited to 3.68:1 in dark but only 1.385:1 in
+   light, so the hovered button was harder to find than the idle one. The
+   opaque token clears 9.82:1 / 5.42:1. */
 button:hover:not(:disabled) {
-  border-color: rgba(0, 212, 255, 0.5);
+  border-color: var(--accent-soft);
 }
 
 button:disabled {
@@ -679,8 +693,14 @@ html[data-theme='light'] .reveal-step {
   background: var(--box);
 }
 
+/* Flags a stage whose Hamming weight reached 8. The ring was a fixed
+   `rgba(255, 51, 102, .5)` — a hard-coded hue in a themed page, which also
+   meant it never picked up the light theme's darker --danger — and it
+   composited to 2.02:1 against the card it rings. Themed and opaque, at 2px so
+   the stroke is not halved by antialiasing on an integer boundary, it measures
+   3.91:1 dark / 3.79:1 light (WCAG 1.4.11). */
 .butterfly-card.hot {
-  box-shadow: inset 0 0 0 1px rgba(255, 51, 102, 0.5);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--danger) 85%, transparent);
 }
 
 /* The card whose Hamming weight produced the hovered/focused trace sample.
@@ -693,12 +713,21 @@ html[data-theme='light'] .reveal-step {
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-/* The exact intermediate (w·b / a+wb / a−wb) the sample measured. */
+/* The exact intermediate (w·b / a+wb / a−wb) the sample measured.
+
+   The 22% wash alone is a selection highlight that does not contrast with what
+   it highlights: measured from screenshot pixels at 1.21:1 dark and 1.39:1
+   light against the card behind it (WCAG 1.4.11 wants 3:1 for the visual
+   indication of a selected state). Raising the wash instead would have pushed
+   the row's own --text ink down, so the boundary carries it: an outline draws
+   outside the box and changes no layout, and --danger measures 5.29:1 dark /
+   4.49:1 light against the card. */
 .butterfly-card .linked-row {
   border-radius: 6px;
   padding: 0.1rem 0.3rem;
   margin: -0.1rem -0.3rem;
   background: color-mix(in srgb, var(--danger) 22%, transparent);
+  outline: 2px solid var(--danger);
   color: var(--text);
   font-weight: 700;
 }
@@ -731,21 +760,42 @@ html[data-theme='light'] .reveal-step {
   gap: 0.4rem;
 }
 
+/* The colour key. This chip is the only thing tying a legend label to a curve
+   on the canvas beside it, so WCAG 1.4.11 asks 3:1 against the surface it sits
+   on — and a ::before is invisible to axe and to the arithmetic text walk
+   alike, so nothing but hand-measurement finds it.
+
+   Every series colour is chosen to read on the canvas's own near-black plot
+   fill (#041008, which `clearPlot` paints in BOTH themes). Reprinted on a
+   light-theme panel they collapse; measured from screenshot pixels:
+   #00ff66 1.35:1, #ffd166 1.44:1, #7fd0ff 1.65:1, #00d4ff 1.77:1,
+   #35d6bb 1.82:1, #ffaa00 1.91:1. The dark-theme mirror is the "never written"
+   grey at 2.68:1. Only #ff3366 cleared, at 3.54:1.
+
+   Changing the fills is not an option — the fill IS the information. So the
+   chip gets a boundary in --text, the highest-contrast ink either theme has
+   (>10:1 against both panels), which satisfies 1.4.11 whatever the fill is.
+   1.5px rather than 1px: a 1px stroke landing on an integer boundary
+   antialiases to roughly half its authored contrast. */
 .chart-legend .swatch::before {
   content: '';
   width: 0.85rem;
   height: 0.85rem;
   border-radius: 3px;
   background: var(--c, var(--accent));
-  box-shadow: 0 0 6px color-mix(in srgb, var(--c, var(--accent)) 55%, transparent);
+  box-shadow:
+    0 0 0 1.5px var(--text),
+    0 0 6px color-mix(in srgb, var(--c, var(--accent)) 55%, transparent);
   flex: 0 0 auto;
 }
 
+/* The dashed variant keeps the ring for the same reason — it is the same key,
+   drawn as a rule instead of a block. */
 .chart-legend .swatch-dash::before {
   height: 0;
   border-radius: 0;
   background: none;
-  box-shadow: none;
+  box-shadow: 0 0 0 1.5px var(--text);
   border-top: 2px dashed var(--c, var(--accent));
 }
 

@@ -1515,8 +1515,15 @@ function drawNonceStrips(abortAfter: number): void {
         : 'rgba(74, 95, 89, 0.9)';
       ctx.fillRect(left + i * cell, top, Math.max(cell - 0.4, 0.6), 34);
     }
-    ctx.strokeStyle = 'rgba(215, 255, 229, 0.25)';
-    ctx.lineWidth = 1;
+    // The strip's OUTLINE is what tells you where the meter starts and ends —
+    // and at m = 8 the dead tail is 97% of it, so the outline is doing that job
+    // almost alone. At the previous 0.25 alpha it composited to 2.10:1 against
+    // the plot fill, under the 3:1 WCAG 1.4.11 asks of a meaningful graphic's
+    // extent (no oracle reaches inside a canvas; measured by hand from
+    // screenshot pixels). 0.45 measures 4.25:1. 1.5px so the stroke is not
+    // halved by antialiasing across an integer coordinate.
+    ctx.strokeStyle = 'rgba(215, 255, 229, 0.45)';
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(left, top, width, 34);
   };
 
