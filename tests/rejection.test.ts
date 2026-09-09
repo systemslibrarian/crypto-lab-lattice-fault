@@ -100,7 +100,16 @@ describe('faulted signing + key recovery (Attack 2)', () => {
       expect(c).toBeGreaterThanOrEqual(0);
       expect(c).toBeLessThanOrEqual(1);
     }
-  });
+    // 5.5-8.0s on the ubuntu-latest runner (8040ms measured 2026-08-21, 5512ms
+    // measured 2026-09-09), ~1.5s on an M-series laptop. 8000 faulted signatures
+    // is what the 60% recovery claim rests on — the random y only averages out
+    // over that many samples — and each one draws 256 crypto.getRandomValues, so
+    // the test spends ~2 million RNG calls before recovery even begins.
+    //
+    // Same story as tests/ntt.test.ts: the cost is unchanged, but vitest 2 could
+    // not fire the 5s default on a test that never yields to the macrotask
+    // queue and vitest 4 can. 30s leaves headroom over the worst run measured.
+  }, 30000);
 
   it('rejects mismatched signature/challenge counts', () => {
     expect(() =>

@@ -123,5 +123,20 @@ describe('CPA attack (Attack 1)', () => {
     // By the final checkpoint the true key wins over the best wrong hypothesis.
     const last = growth.counts.length - 1;
     expect(growth.trueScores[last]!).toBeGreaterThan(growth.noiseFloor[last]!);
-  });
+    // ~12.5s on the ubuntu-latest runner (12449ms measured 2026-08-21, 12592ms
+    // measured 2026-09-09), ~4.5s on an M-series laptop. That is real work, not
+    // a stall: cpaCorrelationGrowth reruns the whole CPA at ten growing prefixes
+    // (20, 40, ... 200 traces), and each run scores all q = 3329 key hypotheses
+    // over a three-sample window, rebuilding leakageSequence for every
+    // (hypothesis, sample, trace) triple — around 11 million leakage sequences,
+    // ~130 million butterflies. The trace count and the checkpoint count are the
+    // assertion: fewer of either and the noise floor has not averaged down yet,
+    // so the test would stop demonstrating that SNR grows with traces.
+    //
+    // It has always cost this much. Vitest 2 simply never enforced the 5s
+    // default on it, because a test that only ever awaits already-resolved
+    // promises starves the macrotask queue the timeout timer lives in. Vitest 4
+    // measures elapsed time instead and enforces it. 30s matches the budget the
+    // other whole-attack simulations in this suite already carry.
+  }, 30000);
 });
