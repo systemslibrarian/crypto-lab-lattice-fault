@@ -157,6 +157,7 @@ app.innerHTML = `
           <p>Regular, branch-free NTT arithmetic still leaks through Hamming-weight power variations.</p>
         </div>
       </div>
+      <p class="sim-warning" role="note">Related but different: <a href="https://eprint.iacr.org/2026/2137" target="_blank" rel="noopener">Jahandideh, ePrint 2026/2137 (September 22, 2026)</a> reports a single power trace during optimized ML-KEM <em>key generation</em> on ARM Cortex-M4, combining CBD and NTT leakage with estimated lattice-attack costs. This exhibit simulates <em>decapsulation</em> leakage; it does not replay that trace or its estimates.</p>
 
       <div class="primer" role="note" aria-label="Key terms for this exhibit">
         <h3>New to this? Four terms first</h3>
