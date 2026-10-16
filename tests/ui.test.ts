@@ -224,6 +224,9 @@ describe('Attack 4 — loop-abort fault and the lattice recovery', () => {
     expect(panel).toContain('256 of 256');
     // The relation, not a nonce recomputation, is what the panel narrates.
     expect(panel).toMatch(/c⁻¹z/);
+    expect(panel).toContain('4.36');
+    expect(panel).toContain('not an estimate of fault injections');
+    expect(panel).not.toContain('4.25');
   }, 60000);
 
   it('past the in-browser cap it says it is modelling, not executing', async () => {

@@ -422,6 +422,13 @@ app.innerHTML = `
         </div>
       </div>
 
+      <p class="sim-warning" role="note"><strong>Signing retries and attack cost:</strong>
+        <a href="https://eprint.iacr.org/2026/2456" target="_blank" rel="noopener">Kwiatkowski, ePrint 2026/2456
+        (preprint; received 12 October, approved 14 October 2026)</a> gives about <strong>4.36</strong>
+        iterations for ordinary ML-DSA-44 signing after accounting for all four rejection checks.
+        <a href="https://csrc.nist.gov/pubs/fips/204/final" target="_blank" rel="noopener">NIST lists potential
+        FIPS 204 updates</a>, not a new final edition. This performance correction does not determine
+        fault-injection cost or change the attack model below.</p>
       <div class="primer" role="note" aria-label="What's different this time">
         <h3>What's different this time</h3>
         <p class="small-text">
@@ -1710,8 +1717,10 @@ runLoopAbortButton.addEventListener('click', () => {
         ${result.wouldReject
           ? 'no, this one is rejected, so the attacker glitches again'
           : 'yes, it passes the ‖z‖∞ check and goes out the door'}.
-        (Rejection sampling means a fault may be wasted; ML-DSA-44 repeats the signing loop 4.25 times on
-        average, which is roughly how many injections the paper expects per usable signature.)</p>`;
+        (Rejection sampling can waste a fault. The corrected ordinary ML-DSA-44 signing average is
+        about 4.36 iterations; this is not an estimate of fault injections per usable signature.
+        Fault success and acceptance under the attack require a separate analysis. This model checks
+        only the z bound above, not the full signer's acceptance conditions.)</p>`;
 
     if (result.skippedReason) {
       loopAbortResults.innerHTML = `
