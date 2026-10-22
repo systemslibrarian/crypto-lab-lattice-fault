@@ -277,6 +277,18 @@ test('attack 2: key recovery reports a rate that matches its own coefficient cou
   await page.locator('#recover-btn').click();
   await expect(page.locator('#recovery-panel')).toContainText('Recovery rate', { timeout: 180_000 });
 
+  for (const selector of ['#recovery-panel', '#rejection-countermeasure-note']) {
+    const note = page.locator(selector);
+    await expect(note.locator('a[href="https://eprint.iacr.org/2026/2567"]')).toBeVisible();
+    await expect(note).toContainText(/preprint/);
+    await expect(note).toContainText(/second-check skip/);
+    await expect(note).toContainText(/z-bound/);
+    await expect(note).toContainText(/not every possible fault/);
+  }
+  const countermeasureRow = page.locator('#attack-5 tr').filter({ hasText: 'z-bound rejection bypass' });
+  await expect(countermeasureRow).toContainText('Implementation-dependent');
+  await expect(countermeasureRow).not.toContainText('~10%');
+
   const text = await panel(page, '#recovery-panel');
   const stats = grab(text, /Recovery rate:\s*([\d.]+)% — (\d+) of (\d+) secret coefficients exactly recovered/);
   const rate = Number(stats[1]);

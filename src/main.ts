@@ -598,13 +598,23 @@ app.innerHTML = `
           <tbody>
             <tr><td>NTT power SCA</td><td>First-order masking</td><td>2–4×</td><td>Available</td></tr>
             <tr><td>NTT power SCA</td><td>Shuffling</td><td>10–20%</td><td>Available</td></tr>
-            <tr><td>Rejection bypass</td><td>Output consistency check</td><td>~10%</td><td>Available</td></tr>
+            <tr><td>z-bound rejection bypass</td><td>Sign-then-verify; other check skips need complementary checks</td><td>Implementation-dependent</td><td>Fault-model-dependent; see research note</td></tr>
             <tr><td>KyberSlash timing</td><td>Constant-time assembly</td><td>0–5%</td><td>Patched</td></tr>
             <tr><td>Loop-abort on the nonce y</td><td>Reject y whose top ε·n coefficients are all zero</td><td>&lt;1%</td><td>Available</td></tr>
             <tr><td>Loop-abort on the nonce y</td><td>Sample y's coefficients in random order</td><td>~0%</td><td>Available</td></tr>
           </tbody>
         </table>
       </div>
+
+      <p class="small-note" id="rejection-countermeasure-note">
+        <strong>Research update — 21 October 2026:</strong>
+        <a href="https://eprint.iacr.org/2026/2567" target="_blank" rel="noreferrer">Meng, ePrint 2026/2567</a>
+        is a preprint reporting implementation experiments under specified fault models.
+        Sign-then-verify catches the evaluated z-bound-check bypass but misses a second-check skip
+        in the reference implementation. Complementary internal checks plus final verification cover
+        the tested paths, not every possible fault. This is not a mathematical break of ML-DSA;
+        this browser model does not implement or measure those protections.
+      </p>
 
       <div class="grid-2">
         <div class="panel inset-panel">
@@ -1355,7 +1365,12 @@ async function runRecovery(): Promise<void> {
     <ul>
       ${Array.from({ length: 8 }, (_, index) => `<li>s₁[${index}] ≈ ${recovery.recovered[index]} (actual ${rejectionSecret[index]}) • confidence ${formatNumber(recovery.confidence[index] ?? 0, 2)}</li>`).join('')}
     </ul>
-    <p><strong>Countermeasure:</strong> recompute and verify the output before returning the signature.</p>
+    <p><strong>Countermeasure scope:</strong> for the z-bound bypass illustrated here, a complete signer
+      can check the output with sign-then-verify. This toy does not implement a complete signer or verifier.</p>
+    <p><a href="https://eprint.iacr.org/2026/2567" target="_blank" rel="noreferrer">Meng, ePrint 2026/2567
+      (21 October 2026)</a> is a preprint reporting that a second-check skip can still pass final verification
+      in the evaluated reference implementation. Complementary checks cover the tested fault paths,
+      not every possible fault. These implementation results are not a mathematical break of ML-DSA.</p>
   `;
 }
 
