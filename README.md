@@ -88,3 +88,9 @@ No environment variables are required.
 *Part of the [Crypto Lab](https://crypto-lab.systemslibrarian.dev/) suite.*
 
 *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
+
+## Secret-key unpacking leakage research
+
+Linus Backlund and Elena Dubrova, *Non-profiled Single-Trace ML-DSA Secret Key Recovery by Horizontal Distribution Analysis*, [ePrint 2026/2643](https://eprint.iacr.org/2026/2643), sections 4–5 and 7–8, evaluates optimized pqm4 ML-DSA-65 on Cortex-M4. The target is unprotected secret-key unpacking, not the NTT or a nonce-unpacking fault. No profiling clone is needed, but physical power traces from a modified low-noise, 6 MHz target are required.
+
+The October 2026 preprint evaluates 1,000 different-key traces. Its reported 99% recovery at a 2^70 Z_q-operation budget combines empirical classification with estimated enumeration cost; it does not establish that the full computation was executed. This browser simulation does not reproduce the hardware attack or validate proposed masking/shuffling countermeasures.
