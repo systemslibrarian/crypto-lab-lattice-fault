@@ -596,6 +596,7 @@ app.innerHTML = `
             </tr>
           </thead>
           <tbody>
+            <tr><td>Secret-key unpacking power leakage</td><td>Evaluate masking and shuffling</td><td>Not measured here</td><td>Conditional hardware preprint; see research note</td></tr>
             <tr><td>NTT power SCA</td><td>First-order masking</td><td>2–4×</td><td>Available</td></tr>
             <tr><td>NTT power SCA</td><td>Shuffling</td><td>10–20%</td><td>Available</td></tr>
             <tr><td>z-bound rejection bypass</td><td>Sign-then-verify; other check skips need complementary checks</td><td>Implementation-dependent</td><td>Fault-model-dependent; see research note</td></tr>
@@ -605,6 +606,12 @@ app.innerHTML = `
           </tbody>
         </table>
       </div>
+
+<aside class="small-note" id="unpacking-research-note" role="note">
+        <h3>Secret-key unpacking leakage (26 October 2026)</h3>
+        <p>Backlund and Dubrova, <a href="https://eprint.iacr.org/2026/2643"><em>Non-profiled Single-Trace ML-DSA Secret Key Recovery by Horizontal Distribution Analysis</em></a>, evaluate optimized pqm4 ML-DSA-65 secret-key unpacking on Cortex-M4. This is physical power-trace analysis of unprotected unpacking, separate from NTT leakage and nonce-unpacking faults. No profiling clone is required; physical traces are still required. Measurements use a modified low-noise setup with a 6 MHz target.</p>
+        <p>The preprint evaluates 1,000 traces from different keys and combines measured classification results with estimated enumeration costs. Its 99% recovery rate assumes a budget of 2<sup>70</sup> operations over Z<sub>q</sub>; it does not establish that the entire budget was executed. These hardware results and computational estimates are not reproduced by this browser simulation. Masking and shuffling require implementation-specific evaluation.</p>
+      </aside>
 
       <p class="small-note" id="rejection-countermeasure-note">
         <strong>Research update — 21 October 2026:</strong>
