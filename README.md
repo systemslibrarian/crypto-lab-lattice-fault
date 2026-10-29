@@ -94,3 +94,9 @@ No environment variables are required.
 Linus Backlund and Elena Dubrova, *Non-profiled Single-Trace ML-DSA Secret Key Recovery by Horizontal Distribution Analysis*, [ePrint 2026/2643](https://eprint.iacr.org/2026/2643), sections 4–5 and 7–8, evaluates optimized pqm4 ML-DSA-65 on Cortex-M4. The target is unprotected secret-key unpacking, not the NTT or a nonce-unpacking fault. No profiling clone is needed, but physical power traces from a modified low-noise, 6 MHz target are required.
 
 The October 2026 preprint evaluates 1,000 different-key traces. Its reported 99% recovery at a 2^70 Z_q-operation budget combines empirical classification with estimated enumeration cost; it does not establish that the full computation was executed. This browser simulation does not reproduce the hardware attack or validate proposed masking/shuffling countermeasures.
+
+## Shuffling research update — 28 October 2026
+
+Schupp et al., [Unshuffling Fisher-Yates, ePrint 2026/2658](https://eprint.iacr.org/2026/2658) (received 27 October, approved 28 October 2026), is a preprint reporting a physical power side-channel attack. Leakage from Fisher-Yates permutation generation reveals the shuffled execution order; combining it with shuffled ML-DSA-44 NTT leakage recovers the secret polynomial s1, directly or with remaining coefficients enumerated. A single trace concerns an individual shuffle; the full polynomial-recovery experiment uses multiple measurements. Protect permutation generation as well as the shuffled operations. This is not a mathematical break of ML-DSA.
+
+Attack 5 now qualifies the shuffling recommendation. This browser simulation does not capture physical traces or reproduce the hardware attack.

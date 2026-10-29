@@ -598,7 +598,7 @@ app.innerHTML = `
           <tbody>
             <tr><td>Secret-key unpacking power leakage</td><td>Evaluate masking and shuffling</td><td>Not measured here</td><td>Conditional hardware preprint; see research note</td></tr>
             <tr><td>NTT power SCA</td><td>First-order masking</td><td>2–4×</td><td>Available</td></tr>
-            <tr><td>NTT power SCA</td><td>Shuffling</td><td>10–20%</td><td>Available</td></tr>
+            <tr><td>NTT power SCA</td><td>Shuffling, including protected permutation generation</td><td>Implementation-dependent; not measured here</td><td>Leakage-model-dependent; see shuffling research note</td></tr>
             <tr><td>z-bound rejection bypass</td><td>Sign-then-verify; other check skips need complementary checks</td><td>Implementation-dependent</td><td>Fault-model-dependent; see research note</td></tr>
             <tr><td>KyberSlash timing</td><td>Constant-time assembly</td><td>0–5%</td><td>Patched</td></tr>
             <tr><td>Loop-abort on the nonce y</td><td>Reject y whose top ε·n coefficients are all zero</td><td>&lt;1%</td><td>Available</td></tr>
@@ -606,6 +606,12 @@ app.innerHTML = `
           </tbody>
         </table>
       </div>
+
+<aside class="small-note" id="shuffling-research-note" role="note">
+        <h3>Shuffling can leak its own order — 28 October 2026</h3>
+        <p>Schupp et al., <a href="https://eprint.iacr.org/2026/2658">Unshuffling Fisher-Yates, ePrint 2026/2658</a> (received 27 October, approved 28 October 2026), is a preprint reporting a physical power side-channel attack. Leakage from Fisher-Yates permutation generation reveals the shuffled execution order; combining it with shuffled ML-DSA-44 NTT leakage recovers the secret polynomial s1, directly or with remaining coefficients enumerated. A single trace concerns an individual shuffle; the full polynomial-recovery experiment uses multiple measurements. Protect permutation generation as well as the shuffled operations. This is not a mathematical break of ML-DSA.</p>
+        <p>This browser simulation does not capture physical traces or reproduce the hardware attack.</p>
+      </aside>
 
 <aside class="small-note" id="unpacking-research-note" role="note">
         <h3>Secret-key unpacking leakage (26 October 2026)</h3>
