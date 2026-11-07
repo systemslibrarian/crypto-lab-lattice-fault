@@ -158,6 +158,7 @@ app.innerHTML = `
         </div>
       </div>
       <p class="sim-warning" role="note">Related but different: <a href="https://eprint.iacr.org/2026/2137" target="_blank" rel="noopener">Jahandideh, ePrint 2026/2137 (September 22, 2026)</a> reports a single power trace during optimized ML-KEM <em>key generation</em> on ARM Cortex-M4, combining CBD and NTT leakage with estimated lattice-attack costs. This exhibit simulates <em>decapsulation</em> leakage; it does not replay that trace or its estimates.</p>
+      <p class="sim-warning" role="note">A different key-generation attack: <a href="https://eprint.iacr.org/2026/2766" target="_blank" rel="noopener noreferrer">Kumar et al., Keyber, ePrint 2026/2766 (November 4, 2026)</a> is a preprint reporting full ML-KEM-512 key recovery on an ARM Cortex-M4. It requires one physical overclock fault during key generation, creating a faulty public key, then decapsulation queries. This is neither this simulated decapsulation power trace nor a public-key-only mathematical break. Harden key generation as well as decapsulation.</p>
 
       <div class="primer" role="note" aria-label="Key terms for this exhibit">
         <h3>New to this? Four terms first</h3>
