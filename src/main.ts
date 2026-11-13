@@ -160,6 +160,19 @@ app.innerHTML = `
       <p class="sim-warning" role="note">Related but different: <a href="https://eprint.iacr.org/2026/2137" target="_blank" rel="noopener">Jahandideh, ePrint 2026/2137 (September 22, 2026)</a> reports a single power trace during optimized ML-KEM <em>key generation</em> on ARM Cortex-M4, combining CBD and NTT leakage with estimated lattice-attack costs. This exhibit simulates <em>decapsulation</em> leakage; it does not replay that trace or its estimates.</p>
       <p class="sim-warning" role="note">A different key-generation attack: <a href="https://eprint.iacr.org/2026/2766" target="_blank" rel="noopener noreferrer">Kumar et al., Keyber, ePrint 2026/2766 (November 4, 2026)</a> is a preprint reporting full ML-KEM-512 key recovery on an ARM Cortex-M4. It requires one physical overclock fault during key generation, creating a faulty public key, then decapsulation queries. This is neither this simulated decapsulation power trace nor a public-key-only mathematical break. Harden key generation as well as decapsulation.</p>
 
+      <aside class="sim-warning" id="hit-research-note" role="note" aria-labelledby="hit-heading">
+        <h3 id="hit-heading">One attack trace still needs profiling — 11 November 2026</h3>
+        <p>Nie et al., <a href="https://eprint.iacr.org/2026/2865">HIT: Single-Pass Inference for Single-Trace NTT Side-Channel Attacks</a>,
+          report physical ARM Cortex-M4 experiments in a <strong>preprint</strong>. Their inference combines leakage
+          across NTT butterflies to recover secret input polynomials. The targets are the forward NTT during
+          <strong>ML-KEM key generation</strong> and <strong>ML-DSA signing</strong>, not this exhibit's simulated decapsulation.</p>
+        <p>“Single-trace” describes the target measurement: the reported experiments first use 20–80 profiling
+          traces from a controlled device. Polynomial recovery, secret-vector recovery and a complete key-recovery
+          or forgery demonstration are different outcomes; results for selected implementations do not cover every
+          parameter set or device. This is not a mathematical break of ML-KEM or ML-DSA. This browser captures no
+          hardware leakage and does not implement HIT.</p>
+      </aside>
+
       <div class="primer" role="note" aria-label="Key terms for this exhibit">
         <h3>New to this? Four terms first</h3>
         <dl class="primer-terms">
@@ -659,6 +672,11 @@ app.innerHTML = `
           (both finalized 2024). The math is standardized — the attacks below target implementations.
         </p>
         <ul class="references-list">
+          <li>
+            <strong>Profiled NTT inference →</strong> Nie et al., <em>HIT: Single-Pass Inference for Single-Trace NTT Side-Channel Attacks</em>,
+            <a href="https://eprint.iacr.org/2026/2865">ePrint 2026/2865</a>, 11 November 2026 (preprint).
+            See <a href="#hit-research-note">Attack 1's profiling and simulation limits</a>.
+          </li>
           <li>
             <strong>NTT power SCA →</strong> Primas, Pessl &amp; Mangard, <em>Single-Trace Side-Channel Attacks
             on Masked Lattice-Based Encryption</em>, CHES 2017.

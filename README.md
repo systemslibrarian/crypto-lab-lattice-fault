@@ -31,6 +31,23 @@ In the demo, you can generate simulated power traces, run the CPA exhibit, compa
 - **A loop-abort fault on nonce generation** ends the per-coefficient `ExpandMask` loop early, so the nonce `y` keeps only a few non-zero coefficients (Exhibit 4). The attacker never learns `y`: because `c⁻¹z − s₁ ≡ c⁻¹y` is now a combination of only `m` ring elements, one faulty signature pins `s₁` inside a lattice of dimension ≈ `m`, and lattice reduction reads the key out. The exhibit runs a real LLL over the real ML-DSA-44 ring and discloses on screen which parts are executed and which are modelled. Note that this is *not* about the per-signature randomness `rnd`: `y` is expanded from `ρ″ = H(K ‖ rnd ‖ μ)` with the private seed `K`, which is why FIPS 204's deterministic variant (`rnd = 0³²`) is an approved and secure mode.
 - **Constant-time coding and masking are separate from mathematical security** — a FIPS-correct implementation can still leak physically without them.
 
+## HIT research update — 13 November 2026
+
+[Nie et al., *HIT: Single-Pass Inference for Single-Trace NTT Side-Channel Attacks*,
+ePrint 2026/2865](https://eprint.iacr.org/2026/2865) (11 November 2026; **preprint**,
+§§2.1–2.3 and 4) reports physical Cortex-M4 experiments targeting secret forward
+NTT inputs during ML-KEM key generation and ML-DSA signing. One target attack
+trace follows 20–80 profiling traces from a controlled device. “Single-trace”
+does not mean no prior profiling or physical access.
+
+The visible [Attack 1 research note](https://systemslibrarian.github.io/crypto-lab-lattice-fault/#hit-research-note)
+distinguishes polynomial recovery, secret-vector recovery and complete
+key-recovery/forgery demonstrations. Results for selected implementations do
+not establish a mathematical break of either standard or coverage of every
+device and parameter set. The browser's decapsulation leakage simulation does
+not collect hardware traces or implement HIT. This addition changes teaching
+context and sources, not the simulated attack engine.
+
 ## Real-World Usage
 
 - Side-channel and fault resistance is a certification concern for **smartcards, secure elements, and HSMs** (Common Criteria, FIPS 140-3).
