@@ -38,13 +38,13 @@ app.innerHTML = `
         <p class="cl-hero-sub">Implementation attacks · ML-KEM · ML-DSA</p>
         <p class="cl-hero-desc">
           Simulates power (CPA) analysis, fault injection, and timing leaks against ML-KEM and ML-DSA so
-          you can watch a mathematically secure scheme give up its secret key through the hardware running it.
+          you can watch a scheme believed secure on paper give up its secret key through the hardware running it.
         </p>
       </div>
       <aside class="cl-hero-why" aria-label="Why it matters">
         <span class="cl-hero-why-label">WHY IT MATTERS</span>
         <p class="cl-hero-why-text">
-          A cipher can be provably unbreakable on paper and still fall on a real chip. Deployments that
+          A cipher can be believed secure on paper and still fall on a real chip. Deployments that
           only check the math ship keys an attacker can extract with a probe or a glitch — implementation
           security is a separate requirement that has to be earned in hardware.
         </p>
