@@ -95,9 +95,13 @@ app.innerHTML = `
             In practice ML-KEM and ML-DSA don't store the key as raw grid vectors — they store
             <strong>polynomials</strong> (256 coefficients modulo a prime q — q = 3329 for ML-KEM,
             q = 8&nbsp;380&nbsp;417 for ML-DSA). Multiplying two polynomials the
-            slow way is 256×256 work. The <strong>NTT</strong> (Number-Theoretic Transform) is a trick that
-            first evaluates each polynomial at 256 special points; in that "NTT form" a product is just
+            slow way is 256×256 work. The <strong>NTT</strong> (Number-Theoretic Transform) is the trick that
+            avoids it. For ML-DSA the split goes all the way down: q has a 512th root of unity, so the
+            polynomial is evaluated at <strong>256 points</strong> and a product really is
             <strong>point-by-point multiplication</strong> — 256 cheap multiplies instead of 65 536.
+            ML-KEM's q has no 512th root of unity, so its transform stops one layer earlier, at
+            <strong>128 degree-two factors</strong>: NTT form is 128 degree-one residues, and each
+            "pointwise" step multiplies two linear polynomials modulo a quadratic.
             The secret key flows through those multiplies, one coefficient at a time — and <em>that</em> is
             the arithmetic Attack 1 watches leak through the chip's power draw.
           </p>
@@ -345,9 +349,11 @@ app.innerHTML = `
         below does the real ring arithmetic.
       </p>
       <p class="exhibit-ref">
-        Real-world basis: <em>Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels</em>,
-        IACR TCHES 2025 — recovers the ML-DSA private key once rejected/leaked responses are observed.
-        <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
+        Real-world basis: Azevedo-Oliveira, Calle Viera, Cogliati &amp; Goubin, <em>Finding a polytope:
+        A practical fault attack against Dilithium</em>, 2025 — physically preventing one of the
+        rejection-sampling tests from happening yields two fault attacks, and enough rejected
+        signatures recover the secret key in under half an hour on a desktop computer.
+        <a href="https://eprint.iacr.org/2025/195" target="_blank" rel="noopener">ePrint 2025/195</a>
       </p>
     </section>
     </details>
@@ -683,8 +689,14 @@ app.innerHTML = `
             <a href="https://eprint.iacr.org/2017/594" target="_blank" rel="noopener">ePrint 2017/594</a>
           </li>
           <li>
-            <strong>Rejection-sampling leakage →</strong> <em>Key Recovery of CRYSTALS-Dilithium via
-            Side-Channel Attacks</em>, IACR TCHES 2025.
+            <strong>Rejection-skip fault →</strong> Azevedo-Oliveira, Calle Viera, Cogliati &amp; Goubin,
+            <em>Finding a polytope: A practical fault attack against Dilithium</em>, 2025.
+            <a href="https://eprint.iacr.org/2025/195" target="_blank" rel="noopener">ePrint 2025/195</a>
+          </li>
+          <li>
+            <strong>Rejection-sampling leakage →</strong> Zhou, Wang, Sun &amp; Yu, <em>Rejected Signatures'
+            Challenges Pose New Challenges: Key Recovery of CRYSTALS-Dilithium via Side-Channel
+            Attacks</em>, 2025 — a power side-channel on rejected signatures, not a fault.
             <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
           </li>
           <li>

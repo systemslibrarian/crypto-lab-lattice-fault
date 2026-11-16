@@ -272,3 +272,32 @@ describe('accessibility (axe-core regression guard)', () => {
     expect(summary).toEqual([]);
   }, 30000);
 });
+
+describe('standards and citation accuracy', () => {
+  const pageText = (): string => (document.body.textContent ?? '').replace(/\s+/g, ' ');
+
+  it('stops ML-KEM’s NTT at 128 factors and keeps 256 points for ML-DSA', () => {
+    const text = pageText();
+    // FIPS 203 §4.3: X^256+1 factors into 128 polynomials of degree 2 modulo q,
+    // so T_q is a direct sum of 128 quadratic extensions and NTT form is 128
+    // degree-one residues. FIPS 204 §2.5: NTT(w) = (w(ζ₀), …, w(ζ₂₅₅)) — 256 points.
+    expect(text).toContain('128 degree-two factors');
+    expect(text).toContain('128 degree-one residues');
+    expect(text).toContain('no 512th root of unity');
+    expect(text).toContain('256 points');
+    // The old copy claimed 256 evaluation points for ML-KEM as well.
+    expect(text).not.toMatch(/ML-KEM and ML-DSA[\s\S]{0,400}?evaluates each polynomial at 256/);
+  });
+
+  it('cites a rejection-skip fault attack as Attack 2’s real-world basis', () => {
+    const text = pageText();
+    expect(text).toContain('Finding a polytope');
+    expect(text).toContain('rejection-sampling tests from happening');
+    const hrefs = Array.from(document.querySelectorAll('a')).map((a) => a.getAttribute('href'));
+    expect(hrefs).toContain('https://eprint.iacr.org/2025/195');
+    // ePrint 2025/214 is a power side-channel, not a fault: it may only appear
+    // where it is described as leakage.
+    expect(text).not.toContain('Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels');
+    expect(text).toContain('a power side-channel on rejected signatures, not a fault');
+  });
+});

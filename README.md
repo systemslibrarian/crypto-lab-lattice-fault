@@ -53,7 +53,7 @@ context and sources, not the simulated attack engine.
 - Side-channel and fault resistance is a certification concern for **smartcards, secure elements, and HSMs** (Common Criteria, FIPS 140-3).
 - **Embedded and IoT PQC deployments** on ARM Cortex-M/A class parts are the exact targets the cited attacks use.
 - **Platform-trust and secure-boot modules** adopting ML-KEM/ML-DSA need masking and constant-time countermeasures.
-- The exhibits reconstruct **published academic attacks** (CHES 2017, IACR TCHES 2025, SAC 2016, and KyberSlash) that shaped these requirements.
+- The exhibits reconstruct **published academic attacks** (CHES 2017, ePrint 2025/195, SAC 2016, and KyberSlash) that shaped these requirements.
 
 ## How to Run Locally
 
@@ -82,7 +82,7 @@ attack here. Each exhibit is a simplified, browser-friendly reconstruction of a 
 | Exhibit | Real-world basis |
 | --- | --- |
 | 1 — NTT power analysis | Primas, Pessl & Mangard, *Single-Trace Side-Channel Attacks on Masked Lattice-Based Encryption*, CHES 2017 — [ePrint 2017/594](https://eprint.iacr.org/2017/594) |
-| 2 — Rejection-sampling fault | *Key Recovery of CRYSTALS-Dilithium via Side-Channel Attacks*, IACR TCHES 2025 — [ePrint 2025/214](https://eprint.iacr.org/2025/214) |
+| 2 — Rejection-sampling fault | Azevedo-Oliveira, Calle Viera, Cogliati & Goubin, *Finding a polytope: A practical fault attack against Dilithium*, 2025 — [ePrint 2025/195](https://eprint.iacr.org/2025/195) |
 | 3 — KyberSlash timing | Bernstein et al., *Exploiting secret-dependent division timings in Kyber*, 2024 — [kyberslash.cr.yp.to](https://kyberslash.cr.yp.to/) · [ePrint 2024/1049](https://eprint.iacr.org/2024/1049) |
 | 4 — Loop-abort fault on the nonce | Espitau, Fouque, Gérard & Tibouchi, *Loop-Abort Faults on Lattice-Based Fiat–Shamir and Hash-and-Sign Signatures*, SAC 2016 — [ePrint 2016/449](https://eprint.iacr.org/2016/449) |
 
@@ -118,3 +118,11 @@ The October 2026 preprint evaluates 1,000 different-key traces. Its reported 99%
 Schupp et al., [Unshuffling Fisher-Yates, ePrint 2026/2658](https://eprint.iacr.org/2026/2658) (received 27 October, approved 28 October 2026), is a preprint reporting a physical power side-channel attack. Leakage from Fisher-Yates permutation generation reveals the shuffled execution order; combining it with shuffled ML-DSA-44 NTT leakage recovers the secret polynomial s1, directly or with remaining coefficients enumerated. A single trace concerns an individual shuffle; the full polynomial-recovery experiment uses multiple measurements. Protect permutation generation as well as the shuffled operations. This is not a mathematical break of ML-DSA.
 
 Attack 5 now qualifies the shuffling recommendation. This browser simulation does not capture physical traces or reproduce the hardware attack.
+
+## Citation and NTT review — 15 November 2026
+
+Attack 2 glitches away the rejection check, but its real-world basis cited [ePrint 2025/214](https://eprint.iacr.org/2025/214) under the invented title *Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels*. That paper is Zhou, Wang, Sun and Yu, *Rejected Signatures' Challenges Pose New Challenges: Key Recovery of CRYSTALS-Dilithium via Side-Channel Attacks*, and it is a **power side-channel** on rejected signatures — single-trace leakage from NTT and response generation, demonstrated on real power consumption from an ARM Cortex-M4. It contains no fault. The matching fault paper is Azevedo-Oliveira, Calle Viera, Cogliati and Goubin, *Finding a polytope: A practical fault attack against Dilithium*, [ePrint 2025/195](https://eprint.iacr.org/2025/195), whose abstract reports that "by physically preventing one of the rejection sampling tests from happening, we obtain two fault attacks against Dilithium" and that an adversary with enough rejected signatures recovers the secret key "in less than half an hour on a desktop computer". Attack 2 and the README table now cite 2025/195; 2025/214 keeps a Further-reading entry under its real title, described as leakage rather than a fault. The unverifiable "IACR TCHES 2025" venue line is gone, including from the Real-World Usage list of reconstructed attacks.
+
+The shared lattice explainer also described the NTT as 256 evaluation points for ML-KEM as well as ML-DSA. Only ML-DSA splits that far: FIPS 204 §2.5 defines `NTT(w) = (w(ζ₀), …, w(ζ₂₅₅))`, since ζ = 1753 is a 512th root of unity modulo q = 8 380 417. ML-KEM has no primitive 512th root of unity modulo q = 3329, so per FIPS 203 §4.3 "the polynomial X^256 + 1 factors into 128 polynomials of degree 2 modulo q", R_q is isomorphic to a direct sum of 128 quadratic extensions, and NTT form is a vector of 128 degree-one residues whose pointwise product multiplies two linear polynomials modulo a quadratic. The paragraph now says both.
+
+`tests/ui.test.ts` gates both corrections against the mounted DOM.
