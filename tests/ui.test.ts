@@ -299,5 +299,11 @@ describe('standards and citation accuracy', () => {
     // where it is described as leakage.
     expect(text).not.toContain('Key Recovery of CRYSTALS-Dilithium via rejection-sampling side channels');
     expect(text).toContain('a power side-channel on rejected signatures, not a fault');
+    // The venue was dropped as unverified; resolving the DOI recorded in the
+    // owner's catalog returns "IACR Transactions on Cryptographic Hardware and
+    // Embedded Systems", volume 2025, issue 4, pages 817-847, issued 5 Sep 2025,
+    // with the same four authors and title — so it is back, with the DOI beside it.
+    expect(text).toContain('IACR TCHES 2025(4):817\u2013847');
+    expect(hrefs).toContain('https://doi.org/10.46586/tches.v2025.i4.817-847');
   });
 });

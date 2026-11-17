@@ -696,8 +696,10 @@ app.innerHTML = `
           <li>
             <strong>Rejection-sampling leakage →</strong> Zhou, Wang, Sun &amp; Yu, <em>Rejected Signatures'
             Challenges Pose New Challenges: Key Recovery of CRYSTALS-Dilithium via Side-Channel
-            Attacks</em>, 2025 — a power side-channel on rejected signatures, not a fault.
-            <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a>
+            Attacks</em>, IACR TCHES 2025(4):817&ndash;847 &mdash; a power side-channel on rejected
+            signatures, not a fault.
+            <a href="https://eprint.iacr.org/2025/214" target="_blank" rel="noopener">ePrint 2025/214</a> ·
+            <a href="https://doi.org/10.46586/tches.v2025.i4.817-847" target="_blank" rel="noopener">doi:10.46586/tches.v2025.i4.817-847</a>
           </li>
           <li>
             <strong>KyberSlash timing →</strong> Bernstein et al., <em>Exploiting secret-dependent division
