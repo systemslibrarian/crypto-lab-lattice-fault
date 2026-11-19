@@ -1,0 +1,47 @@
+name: Gate
+
+# ONE definition of this lab's gate, called by the workflow a Dependabot bump
+# must clear and by the workflow that publishes. `needs:` cannot cross files,
+# so before this the deploy carried its own copy and nothing held the two
+# equal -- in this lab they had already drifted apart.
+#
+# A separate file rather than `workflow_call` on the CI workflow, because that
+# file's dependabot-auto-merge job holds contents: write, pull-requests: write
+# and actions: write, and a called workflow may not hold permissions above its
+# CALLER. Calling it from a deploy that holds contents: read fails the run at
+# startup before any job exists (measured: crypto-lab-key-exchange run
+# 44528331135, conclusion startup_failure).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # 24, not 20. jsdom 30 pulls undici 8, which calls
+          # worker_threads.markAsUncloneable -- added in Node 22.10 and never
+          # backported to 20. On 20.x the one jsdom-environment test file
+          # (tests/ui.test.ts) throws while loading and never runs, yet vitest
+          # still prints the other five files green ("Test Files 5 passed (5) /
+          # Tests 50 passed (50)") and reports the missing 17 only as an
+          # unhandled error. The gate half-ran. npm also warned EBADENGINE for
+          # jsdom, undici, whatwg-url and both @asamuzakjp packages, which want
+          # >=22.19 / >=24. Node 20 is EOL; 24 is the current LTS.
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Type-check and build
+        run: npm run build
+      - name: Run tests
+        run: npm test
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser gate (functional claims + axe-core WCAG A/AA)
+        run: npm run test:a11y
